@@ -30,19 +30,16 @@ function write(key: string, value: unknown) {
 
 export const defaultSettings: Settings = { muted: false, leaveTime: "" };
 
-/** 首次開啟（未有任何模板）時寫入 3 套預設模板 */
-export function loadPresets(): Preset[] {
+/** 回傳 null 代表首次使用（顯示新手引導） */
+export function loadPresets(): Preset[] | null {
   let raw: string | null = null;
   try {
     raw = localStorage.getItem(K.presets);
   } catch {
-    /* ignore */
+    /* 無法使用 localStorage 時直接給預設模板 */
+    return defaultPresets();
   }
-  if (raw === null) {
-    const seeded = defaultPresets();
-    write(K.presets, seeded);
-    return seeded;
-  }
+  if (raw === null) return null;
   return read<Preset[]>(K.presets, []);
 }
 

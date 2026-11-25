@@ -1,5 +1,5 @@
 /* ReadyGo Service Worker：離線優先緩存 */
-const VERSION = "readygo-v1";
+const VERSION = "readygo-v2";
 const SHELL = "/";
 const PRECACHE = [SHELL, "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
 

@@ -16,14 +16,14 @@ npm run build && npm start   # 正式模式，PWA 與離線緩存生效
 
 | 功能 | 位置 |
 | --- | --- |
-| 3 套預設模板（首次開啟寫入） | `lib/defaults.ts`, `lib/storage.ts` |
+| 新手引導：20／30／60 分鐘或自訂時長模板，逐步改名改時間 | `components/OnboardingView.tsx`, `lib/defaults.ts` |
 | 分段倒數、超時紅色 `+mm:ss`、緩衝即時扣減 | `components/TimerView.tsx`, `lib/session.ts` |
 | 佔畫面 38% 的完成大按鈕、暫停、上一步 | `components/TimerView.tsx` |
 | Screen Wake Lock（切回前台自動重新申請） | `lib/wakeLock.ts` |
 | 語音報時（zh-HK → zh-TW → zh-CN）、靜音開關 | `lib/speech.ts` |
 | 緊急壓縮（≥60% 按比例；否則跳過非核心步驟） | `lib/session.ts` `planCompression` |
 | 實際耗時紀錄、對比總結卡、一鍵更新平均時間 | `lib/stats.ts`, `components/SummaryView.tsx` |
-| `?preset=` 分享連結與匯入確認 | `lib/share.ts`, `components/App.tsx` |
+| `?preset=` 分享連結（單個或多個模式，可作備份）與匯入確認 | `lib/share.ts`, `components/App.tsx` |
 | PWA manifest、Service Worker 離線緩存 | `public/manifest.json`, `public/sw.js` |
 
 ## localStorage 鍵

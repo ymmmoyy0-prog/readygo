@@ -4,10 +4,10 @@ import SwRegister from "@/components/SwRegister";
 
 export const metadata: Metadata = {
   title: "出門精算師 ReadyGo",
-  description: "化妝及出門分段計時器：語音報時、螢幕常亮、緊急壓縮，唔再遲到。",
+  description: "出門準備分段計時器：語音報時、螢幕常亮、緊急壓縮，唔再遲到。",
   manifest: "/manifest.json",
   applicationName: "ReadyGo",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "ReadyGo" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "ReadyGo" },
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -24,8 +24,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#0a0a0b",
-  colorScheme: "dark",
+  themeColor: "#f6f3ee",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -12,45 +12,51 @@ import {
   saveSession,
   saveSettings,
 } from "@/lib/storage";
-import { decodePreset } from "@/lib/share";
+import { decodeShare } from "@/lib/share";
 import { createSession } from "@/lib/session";
 import { leaveTimeToEpoch } from "@/lib/time";
 import { initSpeech, speak } from "@/lib/speech";
+import { QUICK_TEMPLATES, defaultPresets, fromTemplate } from "@/lib/defaults";
 import HomeView from "./HomeView";
 import EditorView from "./EditorView";
 import TimerView from "./TimerView";
 import SummaryView from "./SummaryView";
+import OnboardingView from "./OnboardingView";
 import Modal from "./Modal";
 
 type View =
+  | { name: "onboard"; firstRun: boolean }
   | { name: "home" }
-  | { name: "edit"; presetId: string | null }
+  /** onboarding 為 undefined 代表一般編輯；字串或 null 代表新手引導中揀咗嘅模板 */
+  | { name: "edit"; draft: Preset; isNew: boolean; onboarding?: string | null; firstRun?: boolean }
   | { name: "timer" }
   | { name: "summary" };
 
 export default function App() {
   const [ready, setReady] = useState(false);
-  const [presets, setPresetsState] = useState<Preset[]>([]);
+  const [presets, setPresetsState] = useState<Preset[] | null>(null);
   const [history, setHistoryState] = useState<StepRecord[]>([]);
   const [settings, setSettingsState] = useState<Settings>(defaultSettings);
   const [session, setSessionState] = useState<Session | null>(null);
   const [view, setView] = useState<View>({ name: "home" });
-  const [incoming, setIncoming] = useState<Preset | null>(null);
+  const [incoming, setIncoming] = useState<Preset[] | null>(null);
   const [badLink, setBadLink] = useState(false);
 
   useEffect(() => {
-    setPresetsState(loadPresets());
+    const loaded = loadPresets();
+    setPresetsState(loaded);
     setHistoryState(loadHistory());
     setSettingsState(loadSettings());
     const s = loadSession();
-    if (s) {
+    if (s && loaded) {
       setSessionState(s);
       setView(s.finishedAt ? { name: "summary" } : { name: "timer" });
+    } else if (!loaded) {
+      setView({ name: "onboard", firstRun: true });
     }
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("preset");
+    const code = new URLSearchParams(window.location.search).get("preset");
     if (code) {
-      const p = decodePreset(code);
+      const p = decodeShare(code);
       if (p) setIncoming(p);
       else setBadLink(true);
     }
@@ -61,6 +67,8 @@ export default function App() {
   const setPresets = useCallback((p: Preset[]) => {
     setPresetsState(p);
     savePresets(p);
+    // 申請持久儲存，減低瀏覽器自動清走資料嘅機會
+    navigator.storage?.persist?.().catch(() => {});
   }, []);
   const setHistory = useCallback((fn: (h: StepRecord[]) => StepRecord[]) => {
     setHistoryState((prev) => {
@@ -78,6 +86,8 @@ export default function App() {
     saveSession(s);
   }, []);
 
+  const list = presets ?? [];
+
   const clearQuery = () => {
     const url = new URL(window.location.href);
     url.searchParams.delete("preset");
@@ -86,12 +96,16 @@ export default function App() {
 
   const acceptImport = () => {
     if (!incoming) return;
-    let name = incoming.name;
-    const names = new Set(presets.map((p) => p.name));
-    if (names.has(name)) name = `${name}（分享）`;
-    setPresets([...presets, { ...incoming, name }]);
+    const names = new Set(list.map((p) => p.name));
+    const added = incoming.map((p) => {
+      const name = names.has(p.name) ? `${p.name}（分享）` : p.name;
+      names.add(name);
+      return { ...p, name };
+    });
+    setPresets([...list, ...added]);
     setIncoming(null);
     clearQuery();
+    if (view.name === "onboard") setView({ name: "home" });
   };
 
   const start = (preset: Preset) => {
@@ -102,38 +116,62 @@ export default function App() {
     setView({ name: "timer" });
   };
 
-  if (!ready) return <div className="min-h-dvh bg-[#0a0a0b]" />;
-
-  const editing = view.name === "edit" ? presets.find((p) => p.id === view.presetId) ?? null : null;
+  if (!ready) return <div className="min-h-dvh bg-paper" />;
 
   return (
     <>
+      {view.name === "onboard" && (
+        <OnboardingView
+          firstRun={view.firstRun}
+          onPick={(draft, key) => setView({ name: "edit", draft, isNew: true, onboarding: key, firstRun: view.firstRun })}
+          onSkip={() => {
+            setPresets([...list, ...defaultPresets()]);
+            setView({ name: "home" });
+          }}
+          onCancel={view.firstRun ? undefined : () => setView({ name: "home" })}
+        />
+      )}
       {view.name === "home" && (
         <HomeView
-          presets={presets}
+          presets={list}
           settings={settings}
           session={session}
           onSettings={setSettings}
           onStart={start}
-          onEdit={(id) => setView({ name: "edit", presetId: id })}
+          onEdit={(id) => {
+            const p = list.find((x) => x.id === id);
+            setView(p ? { name: "edit", draft: p, isNew: false } : { name: "onboard", firstRun: false });
+          }}
           onResume={() => setView(session?.finishedAt ? { name: "summary" } : { name: "timer" })}
         />
       )}
       {view.name === "edit" && (
         <EditorView
-          preset={editing}
+          key={view.draft.id}
+          initial={view.draft}
+          isNew={view.isNew}
+          onboarding={view.onboarding !== undefined && !!view.firstRun}
           history={history}
-          onSave={(p) => {
-            const exists = presets.some((x) => x.id === p.id);
-            setPresets(exists ? presets.map((x) => (x.id === p.id ? p : x)) : [...presets, p]);
+          onSave={(p, addOthers) => {
+            if (view.onboarding !== undefined) {
+              const extras = addOthers
+                ? QUICK_TEMPLATES.filter((t) => t.key !== view.onboarding).map(fromTemplate)
+                : [];
+              setPresets([...list, p, ...extras]);
+            } else {
+              const exists = list.some((x) => x.id === p.id);
+              setPresets(exists ? list.map((x) => (x.id === p.id ? p : x)) : [...list, p]);
+            }
             setView({ name: "home" });
           }}
           onDelete={(id) => {
-            setPresets(presets.filter((x) => x.id !== id));
+            setPresets(list.filter((x) => x.id !== id));
             setHistory((h) => h.filter((r) => r.presetId !== id));
             setView({ name: "home" });
           }}
-          onCancel={() => setView({ name: "home" })}
+          onCancel={() =>
+            setView(view.onboarding !== undefined ? { name: "onboard", firstRun: !!view.firstRun } : { name: "home" })
+          }
         />
       )}
       {view.name === "timer" && session && (
@@ -156,9 +194,9 @@ export default function App() {
       {view.name === "summary" && session && (
         <SummaryView
           session={session}
-          preset={presets.find((p) => p.id === session.presetId) ?? null}
+          preset={list.find((p) => p.id === session.presetId) ?? null}
           history={history}
-          onUpdatePreset={(p) => setPresets(presets.map((x) => (x.id === p.id ? p : x)))}
+          onUpdatePreset={(p) => setPresets(list.map((x) => (x.id === p.id ? p : x)))}
           onDone={() => {
             setSession(null);
             setView({ name: "home" });
@@ -169,32 +207,42 @@ export default function App() {
       <Modal open={!!incoming} title="是否匯入分享的出門流程？">
         {incoming && (
           <>
-            <p className="mb-3 text-lg font-semibold text-lime-300">{incoming.name}</p>
-            <ol className="mb-4 space-y-1 text-neutral-200">
-              {incoming.steps.map((s, i) => (
-                <li key={s.id} className="flex justify-between rounded-lg bg-neutral-800 px-3 py-2">
-                  <span>
-                    {i + 1}. {s.name}
-                  </span>
-                  <span className="tnum text-neutral-400">{s.minutes} 分鐘</span>
-                </li>
+            <div className="mb-4 space-y-4">
+              {incoming.map((p) => (
+                <div key={p.id}>
+                  <div className="mb-2 flex items-baseline justify-between gap-3">
+                    <p className="text-lg font-bold text-brand">{p.name}</p>
+                    <span className="tnum shrink-0 font-semibold text-ink">
+                      {p.steps.reduce((a, s) => a + s.minutes, 0)} 分鐘
+                    </span>
+                  </div>
+                  <ol className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
+                    {p.steps.map((s, i) => (
+                      <li key={s.id} className="flex justify-between gap-3 px-4 py-2.5">
+                        <span className="text-ink">
+                          <span className="mr-2 text-faint">{i + 1}</span>
+                          {s.name}
+                        </span>
+                        <span className="tnum shrink-0 text-sub">{s.minutes} 分鐘</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               ))}
-            </ol>
-            <p className="mb-4 text-neutral-400">
-              總計 {incoming.steps.reduce((a, s) => a + s.minutes, 0)} 分鐘。匯入後只會存喺你部手機，可以自由修改。
-            </p>
+            </div>
+            <p className="mb-5 leading-relaxed text-sub">匯入後只會存喺你部手機，可以自由修改。</p>
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   setIncoming(null);
                   clearQuery();
                 }}
-                className="h-14 flex-1 rounded-2xl bg-neutral-700 text-lg font-semibold"
+                className="h-14 flex-1 rounded-2xl border border-line bg-card text-lg font-semibold text-ink"
               >
                 唔使
               </button>
-              <button onClick={acceptImport} className="h-14 flex-1 rounded-2xl bg-lime-400 text-lg font-bold text-black">
-                匯入
+              <button onClick={acceptImport} className="h-14 flex-[1.4] rounded-2xl bg-brand text-lg font-bold text-white">
+                {incoming.length > 1 ? `匯入 ${incoming.length} 個` : "匯入"}
               </button>
             </div>
           </>
@@ -202,13 +250,13 @@ export default function App() {
       </Modal>
 
       <Modal open={badLink} title="連結無效" onClose={() => setBadLink(false)}>
-        <p className="mb-4 text-neutral-300">呢條分享連結已損壞或者唔完整，請叫朋友重新複製一次。</p>
+        <p className="mb-5 text-sub">呢條分享連結已損壞或者唔完整，請叫朋友重新複製一次。</p>
         <button
           onClick={() => {
             setBadLink(false);
             clearQuery();
           }}
-          className="h-12 w-full rounded-2xl bg-neutral-700 font-semibold"
+          className="h-12 w-full rounded-2xl border border-line bg-card font-semibold"
         >
           知道
         </button>

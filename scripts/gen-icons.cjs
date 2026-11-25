@@ -4,11 +4,11 @@ const path = require("path");
 
 const svg = (pad) => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="${pad ? 0 : 112}" fill="#0a0a0b"/>
+  <rect width="512" height="512" rx="${pad ? 0 : 112}" fill="#f6f3ee"/>
   <g transform="translate(256 270) scale(${pad ? 0.78 : 1})">
-    <circle r="150" fill="none" stroke="#a3e635" stroke-width="34"/>
-    <rect x="-22" y="-215" width="44" height="50" rx="10" fill="#a3e635"/>
-    <path d="M0 -95 V0 L70 52" fill="none" stroke="#fafafa" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle r="150" fill="none" stroke="#2e6b5c" stroke-width="34"/>
+    <rect x="-22" y="-215" width="44" height="50" rx="10" fill="#2e6b5c"/>
+    <path d="M0 -95 V0 L70 52" fill="none" stroke="#1d2125" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>`;
 

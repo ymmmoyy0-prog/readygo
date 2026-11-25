@@ -15,16 +15,16 @@ export default function Modal({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/35 p-3 backdrop-blur-[2px] sm:items-center"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-3xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-[1.75rem] bg-card p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-3 text-xl font-bold text-white">{title}</h2>
+        <h2 className="mb-4 text-xl font-extrabold text-ink">{title}</h2>
         {children}
       </div>
     </div>
