@@ -36,6 +36,7 @@ export const defaultSettings: Settings = {
   arriveTime: "",
   manualTravelMin: 30,
   transit: defaultTransit,
+  transitSkipped: false,
   plan: null,
 };
 

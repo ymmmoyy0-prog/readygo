@@ -49,6 +49,8 @@ export interface Settings {
   /** 未設定交通路線時，以此分鐘作為門到門路程 */
   manualTravelMin: number;
   transit: TransitSettings;
+  /** 用戶選擇不設定交通（第 2 步略過） */
+  transitSkipped: boolean;
   plan: Plan | null;
 }
 

@@ -48,7 +48,12 @@ export default function App() {
   const [badLink, setBadLink] = useState(false);
 
   useEffect(() => {
-    const loaded = loadPresets();
+    let loaded = loadPresets();
+    // 首次使用：直接加入快速模板，主頁以 1-2-3 步驟引導
+    if (!loaded) {
+      loaded = defaultPresets();
+      savePresets(loaded);
+    }
     setPresetsState(loaded);
     setHistoryState(loadHistory());
     setSettingsState(loadSettings());
@@ -56,8 +61,6 @@ export default function App() {
     if (s && loaded) {
       setSessionState(s);
       setView(s.finishedAt ? { name: "summary" } : { name: "timer" });
-    } else if (!loaded) {
-      setView({ name: "onboard", firstRun: true });
     }
     const code = new URLSearchParams(window.location.search).get("preset");
     if (code) {
@@ -90,8 +93,11 @@ export default function App() {
     // 實時配對得出的乘車分鐘寫回路線設定
     setSettingsState((prev) => {
       const r = prev.transit[which];
-      if (!r) return prev;
-      const next = { ...prev, transit: { ...prev.transit, [which]: { ...r, rideMin: min } } };
+      if (!r || r.rideManual) return prev;
+      // 與舊值平均，避免單次異常令乘車時間大幅跳動
+      const blended = Math.round((r.rideMin + min) / 2);
+      if (blended === r.rideMin) return prev;
+      const next = { ...prev, transit: { ...prev.transit, [which]: { ...r, rideMin: blended } } };
       saveSettings(next);
       return next;
     })

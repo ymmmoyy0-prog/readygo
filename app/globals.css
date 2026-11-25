@@ -123,3 +123,20 @@ button:focus-visible {
 .overtime-pulse {
   animation: overtime-pulse 1s ease-in-out infinite;
 }
+
+/* 新手引導：當前步驟節點脈動 */
+@keyframes node-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(213 43 30 / 0.55); }
+  70% { box-shadow: 0 0 0 12px rgb(213 43 30 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(213 43 30 / 0); }
+}
+.node-pulse {
+  animation: node-pulse 1.6s ease-out infinite;
+}
+@keyframes nudge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+.nudge {
+  animation: nudge 1.2s ease-in-out infinite;
+}
