@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReadyGo 精簡版</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang HK", "Noto Sans HK", "Noto Sans CJK TC", sans-serif; background: #d9d6d0; color: #111; }
+  .sheet { display: flex; gap: 32px; padding: 40px; align-items: flex-start; }
+  .cap { font-size: 18px; font-weight: 800; margin-bottom: 12px; }
+  .phone { width: 390px; height: 800px; background: #fff; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgb(0 0 0 / .18); }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .sub { color: #555; }
+  .red { color: #d52b1e; }
+  .ok { color: #1f7a45; }
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 3px solid #111; }
+  .top h1 { font-size: 20px; font-weight: 800; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .flap { display: inline-flex; gap: .06em; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .flap .t { position: relative; width: .74em; height: 1.22em; background: #1a1a1a; color: #fff; display: flex; align-items: center; justify-content: center; }
+  .flap .t::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: #000; }
+  .flap .s { width: .32em; display: flex; align-items: center; justify-content: center; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1.5px solid #111; }
+  .seg div { text-align: center; padding: 8px 0; font-weight: 700; font-size: 15px; }
+  .seg .on { background: #111; color: #fff; }
+  .row { display: grid; grid-template-columns: 62px 1fr auto auto; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #ddd; }
+  .row .t { font-size: 20px; font-weight: 800; }
+  .row .n { font-size: 18px; font-weight: 800; }
+  .row .d { font-size: 15px; color: #555; }
+  .row .go { background: #111; color: #fff; font-weight: 800; padding: 9px 14px; font-size: 15px; }
+  .link { display: flex; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #111; font-weight: 700; }
+  .bus { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
+  .chip { font-size: 12px; font-weight: 800; padding: 2px 6px; color: #fff; }
+  .kmb { background: #c8102e; } .ctb { background: #f2b200; color: #111; } .mtr { background: #ad1f2c; }
+  .ruler { height: 14px; position: relative; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1.5px solid #111; margin: 0 12px 8px; }
+  .btns div { text-align: center; padding: 13px 0; font-weight: 800; }
+  .btns div + div { border-left: 1.5px solid #111; }
+  .btns .p { background: #d52b1e; color: #fff; }
+  .done { height: 36%; background: #111; color: #fff; border-top: 6px solid #d52b1e; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; margin-top: auto; flex-shrink: 0; }
+  .done b { font-size: 40px; }
+  .done span { font-size: 18px; color: #ccc; margin-top: 6px; }
+  .field { padding: 14px 20px; border-bottom: 1px solid #ddd; }
+  .field .k { font-size: 13px; color: #555; margin-bottom: 4px; }
+  .field .v { font-size: 18px; font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
+  .eta { display: grid; grid-template-columns: 60px 1fr auto; padding: 10px 20px; border-bottom: 1px solid #eee; align-items: center; font-size: 16px; }
+  .eta .tt { font-weight: 800; font-size: 20px; }
+  .note { font-size: 14px; color: #555; padding: 10px 20px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<section class="sheet" id="S">
+
+  <!-- 主頁 -->
+  <div>
+    <div class="cap">① 主頁</div>
+    <div class="phone">
+      <div class="top">
+        <div class="logo">
+          <svg width="28" height="28" viewBox="0 0 36 36"><rect x="1.5" y="1.5" width="33" height="33" fill="none" stroke="#111" stroke-width="3"/><path d="M18 7v11h8" fill="none" stroke="#111" stroke-width="3"/><circle cx="26" cy="18" r="3" fill="#d52b1e"/></svg>
+          <h1>出門精算師</h1>
+        </div>
+        <span class="sub" style="font-size:14px">設定</span>
+      </div>
+
+      <div style="padding:20px; border-bottom:1px solid #111">
+        <div class="seg" style="margin-bottom:16px"><div>出門時間</div><div class="on">到達時間</div></div>
+        <div style="display:flex; align-items:flex-end; justify-content:space-between">
+          <span class="flap" style="font-size:44px"><span class="t">0</span><span class="t">9</span><span class="s">:</span><span class="t">0</span><span class="t">0</span></span>
+          <div style="text-align:right">
+            <div class="sub" style="font-size:13px">應出門</div>
+            <div class="tnum" style="font-size:28px; font-weight:800">08:22</div>
+          </div>
+        </div>
+        <div style="margin-top:12px; font-size:15px; display:flex; align-items:center; gap:8px">
+          <span class="chip kmb">九巴</span><b>1A</b><span class="sub">旺角 → 尖沙咀　08:31 班次</span>
+        </div>
+      </div>
+
+      <div class="row"><span class="t tnum">07:52</span><span class="n">上班</span><span class="d tnum">30′</span><span class="go">開始</span></div>
+      <div class="row"><span class="t tnum">08:02</span><span class="n">快速出門</span><span class="d tnum">20′</span><span class="go">開始</span></div>
+      <div class="row"><span class="t tnum red">07:22</span><span class="n">從容出門</span><span class="d tnum">60′</span><span class="go">開始</span></div>
+
+      <div class="link" style="border-top:1px solid #111; margin-top:auto"><span>明天的計劃</span><span>→</span></div>
+      <div class="link" style="border-bottom:0"><span>交通路線</span><span>→</span></div>
+    </div>
+  </div>
+
+  <!-- 計時 -->
+  <div>
+    <div class="cap">② 計時</div>
+    <div class="phone">
+      <div class="top" style="padding:12px 16px"><span style="font-weight:700">✕</span><b>上班</b><span>🔊</span></div>
+      <div style="padding:22px 20px 0; flex:1; display:flex; flex-direction:column; gap:14px">
+        <div>
+          <div class="sub" style="font-size:14px">第 2 站／共 6 站</div>
+          <div style="font-size:34px; font-weight:800">護膚整理</div>
+        </div>
+        <span class="flap" style="font-size:72px"><span class="t">0</span><span class="t">4</span><span class="s">:</span><span class="t">5</span><span class="t">7</span></span>
+        <div style="font-size:17px; display:flex; gap:18px; border-top:1px solid #111; border-bottom:1px solid #111; padding:10px 0">
+          <span>尚餘 <b class="tnum">24:57</b></span><span>緩衝 <b class="ok">+4 分</b></span>
+        </div>
+        <svg viewBox="0 0 1000 16" preserveAspectRatio="none" style="width:100%; height:14px"><rect y="7" width="1000" height="2" fill="#111"/><rect y="5" width="230" height="6" fill="#d52b1e"/><g fill="#111"><rect x="0" width="3" height="16"/><rect x="167" width="3" height="16"/><rect x="333" width="3" height="16"/><rect x="500" width="3" height="16"/><rect x="767" width="3" height="16"/><rect x="900" width="3" height="16"/><rect x="997" width="3" height="16"/></g></svg>
+        <div style="font-size:15px; display:flex; align-items:center; gap:8px">
+          <span class="chip kmb">九巴</span><b>1A</b><span>08:31 到站・</span><span class="sub">08:22 前出門</span>
+        </div>
+      </div>
+      <div class="btns"><div>上一步</div><div>暫停</div><div class="p">時間不足</div></div>
+      <div class="done"><b>提早完成此步</b><span>下一站　整理頭髮　5 分鐘 →</span></div>
+    </div>
+  </div>
+
+  <!-- 計劃 -->
+  <div>
+    <div class="cap">③ 明天的計劃</div>
+    <div class="phone">
+      <div class="top"><span style="font-weight:700">← 返回</span><b>明天的計劃</b><span></span></div>
+      <div class="field"><div class="k">出門模式</div><div class="v">上班　<span class="sub" style="font-weight:400">30 分鐘 ▾</span></div></div>
+      <div class="field"><div class="k">到達時間</div><div class="v"><span class="flap" style="font-size:30px"><span class="t">0</span><span class="t">9</span><span class="s">:</span><span class="t">0</span><span class="t">0</span></span><span class="sub" style="font-weight:400; font-size:15px">九巴 1A・路程 38 分</span></div></div>
+      <div class="field" style="border-bottom:1px solid #111"><div class="k">起床緩衝</div><div class="v">10 分鐘<span class="sub" style="font-weight:400">－　＋</span></div></div>
+
+      <div style="padding:20px">
+        <div style="background:#111; color:#fff; padding:18px 20px">
+          <div style="font-size:14px; color:#bbb">建議鬧鐘</div>
+          <div class="tnum" style="font-size:56px; font-weight:800; line-height:1.1">07:42</div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; border:1.5px solid #111; border-top:0">
+          <div style="padding:12px 16px"><div class="sub" style="font-size:13px">開始準備</div><div class="tnum" style="font-size:26px; font-weight:800">07:52</div></div>
+          <div style="padding:12px 16px; border-left:1.5px solid #111"><div class="sub" style="font-size:13px">出門</div><div class="tnum" style="font-size:26px; font-weight:800">08:22</div></div>
+        </div>
+        <p class="sub" style="font-size:14px; margin-top:12px; line-height:1.6">請自行將鬧鐘設定為 07:42。路程按平日班次估算，明早出門前會以實時班次更新。</p>
+      </div>
+      <div style="margin-top:auto; padding:12px 16px; border-top:1.5px solid #111"><div style="background:#111; color:#fff; text-align:center; padding:16px; font-weight:800; font-size:17px">儲存計劃</div></div>
+    </div>
+  </div>
+
+  <!-- 交通路線 -->
+  <div>
+    <div class="cap">④ 交通路線（第二步）</div>
+    <div class="phone">
+      <div class="top"><span style="font-weight:700">← 返回</span><b>交通路線</b><span></span></div>
+      <div class="seg" style="margin:14px 20px"><div class="on">首選</div><div>備案</div></div>
+      <div class="field"><div class="k">交通工具</div><div class="v"><span><span class="chip kmb">九巴</span>　<span class="chip ctb">城巴</span>　<span class="chip mtr">港鐵</span></span></div></div>
+      <div class="field"><div class="k">路線及方向</div><div class="v">1A　往尖沙咀碼頭 ▾</div></div>
+      <div class="field"><div class="k">上車站・步行前往</div><div class="v">旺角站（彌敦道）<span class="tnum sub" style="font-weight:400">6 分</span></div></div>
+      <div class="field" style="border-bottom:1px solid #111"><div class="k">下車站・步行到目的地</div><div class="v">尖沙咀（中間道）<span class="tnum sub" style="font-weight:400">8 分</span></div></div>
+
+      <div class="note" style="font-weight:800; color:#111; padding-bottom:4px">實時班次（每 30 秒更新）</div>
+      <div class="eta" style="color:#aaa"><span class="tt tnum">08:24</span><span>來不及</span><span></span></div>
+      <div class="eta" style="background:#e7f3ec"><span class="tt tnum">08:31</span><span>08:22 前出門</span><span class="tnum ok"><b>09:00 到</b></span></div>
+      <div class="eta"><span class="tt tnum">08:40</span><span>08:31 前出門</span><span class="tnum red"><b>09:09 到</b></span></div>
+      <p class="note">到達時間 ＝ 班次到站 ＋ 乘車時間（估算）＋ 下車後步行。<br>出門時間 ＝ 班次到站 － 出門緩衝 4 分 － 步行到站。</p>
+    </div>
+  </div>
+</section>
+</body>
+</html>
