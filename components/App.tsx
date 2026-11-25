@@ -14,7 +14,6 @@ import {
 } from "@/lib/storage";
 import { decodeShare } from "@/lib/share";
 import { createSession } from "@/lib/session";
-import { leaveTimeToEpoch } from "@/lib/time";
 import { initSpeech, speak } from "@/lib/speech";
 import { QUICK_TEMPLATES, defaultPresets, fromTemplate } from "@/lib/defaults";
 import HomeView from "./HomeView";
@@ -23,6 +22,9 @@ import TimerView from "./TimerView";
 import SummaryView from "./SummaryView";
 import OnboardingView from "./OnboardingView";
 import PlanView from "./PlanView";
+import RouteView from "./RouteView";
+import { useTransit } from "@/lib/useTransit";
+import { computeTarget } from "@/lib/target";
 import Modal from "./Modal";
 
 type View =
@@ -32,6 +34,7 @@ type View =
   | { name: "edit"; draft: Preset; isNew: boolean; onboarding?: string | null; firstRun?: boolean }
   | { name: "timer" }
   | { name: "plan" }
+  | { name: "routes" }
   | { name: "summary" };
 
 export default function App() {
@@ -83,6 +86,23 @@ export default function App() {
     setSettingsState(s);
     saveSettings(s);
   }, []);
+  const live = useTransit(settings.transit, (which, min) =>
+    // 實時配對得出的乘車分鐘寫回路線設定
+    setSettingsState((prev) => {
+      const r = prev.transit[which];
+      if (!r) return prev;
+      const next = { ...prev, transit: { ...prev.transit, [which]: { ...r, rideMin: min } } };
+      saveSettings(next);
+      return next;
+    })
+  );
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setClock(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, []);
+  const target = computeTarget(settings, live, clock);
+
   const setSession = useCallback((s: Session | null) => {
     setSessionState(s);
     saveSession(s);
@@ -110,11 +130,15 @@ export default function App() {
     if (view.name === "onboard") setView({ name: "home" });
   };
 
-  const start = (preset: Preset, leaveOverride?: string) => {
-    const leave = leaveOverride ?? settings.leaveTime;
-    if (leaveOverride && leaveOverride !== settings.leaveTime) setSettings({ ...settings, leaveTime: leaveOverride });
-    const target = leave ? leaveTimeToEpoch(leave) : null;
-    const s = createSession(preset, target);
+  const start = (preset: Preset, fromPlan?: boolean) => {
+    let st = settings;
+    const plan = settings.plan;
+    if (fromPlan && plan) {
+      st = plan.mode === "arrive" ? { ...settings, timeMode: "arrive", arriveTime: plan.time } : { ...settings, timeMode: "leave", leaveTime: plan.time };
+      setSettings(st);
+    }
+    const t = computeTarget(st, live, Date.now());
+    const s = createSession(preset, t.leaveAt);
     if (!settings.muted) speak(`開始${preset.name}，第一步，${preset.steps[0].name}`); // 於用戶操作內觸發，解鎖 iOS 語音
     setSession(s);
     setView({ name: "timer" });
@@ -148,13 +172,15 @@ export default function App() {
           }}
           onResume={() => setView(session?.finishedAt ? { name: "summary" } : { name: "timer" })}
           onPlan={() => setView({ name: "plan" })}
+          onRoutes={() => setView({ name: "routes" })}
+          target={target}
+          live={live}
         />
       )}
       {view.name === "plan" && (
         <PlanView
           presets={list}
-          plan={settings.plan}
-          defaultLeave={settings.leaveTime}
+          settings={settings}
           onSave={(plan) => {
             setSettings({ ...settings, plan });
             setView({ name: "home" });
@@ -165,6 +191,9 @@ export default function App() {
           }}
           onBack={() => setView({ name: "home" })}
         />
+      )}
+      {view.name === "routes" && (
+        <RouteView settings={settings} live={live} onSettings={setSettings} onBack={() => setView({ name: "home" })} />
       )}
       {view.name === "edit" && (
         <EditorView
@@ -199,6 +228,8 @@ export default function App() {
         <TimerView
           session={session}
           settings={settings}
+          live={live}
+          liveLeave={settings.timeMode === "arrive" && target.source === "live" ? target.leaveAt : null}
           onSettings={setSettings}
           onSession={setSession}
           onRecord={(rec) => setHistory((h) => [...h, rec])}

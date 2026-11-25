@@ -23,10 +23,16 @@ export interface StepRecord {
   at: number;
 }
 
+import type { TransitSettings } from "./transit";
+
+export type TimeMode = "leave" | "arrive";
+
 export interface Plan {
   presetId: string;
-  /** 出門時間 "HH:MM" */
-  leaveTime: string;
+  /** 以出門時間或到達時間計算 */
+  mode: TimeMode;
+  /** "HH:MM" */
+  time: string;
   /** 起床後至開始準備的緩衝分鐘 */
   wakeBufferMin: number;
   /** 計劃日期 "YYYY-MM-DD"（本地時間） */
@@ -37,6 +43,12 @@ export interface Settings {
   muted: boolean;
   /** 手動目標出門時間 "HH:MM"，空字串代表未設定 */
   leaveTime: string;
+  timeMode: TimeMode;
+  /** 到達目的地時間 "HH:MM" */
+  arriveTime: string;
+  /** 未設定交通路線時，以此分鐘作為門到門路程 */
+  manualTravelMin: number;
+  transit: TransitSettings;
   plan: Plan | null;
 }
 

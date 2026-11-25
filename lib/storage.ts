@@ -1,5 +1,6 @@
 import type { Preset, Session, Settings, StepRecord } from "./types";
 import { defaultPresets } from "./defaults";
+import { defaultTransit } from "./transit";
 
 const K = {
   presets: "readygo.presets.v1",
@@ -28,7 +29,15 @@ function write(key: string, value: unknown) {
   }
 }
 
-export const defaultSettings: Settings = { muted: false, leaveTime: "", plan: null };
+export const defaultSettings: Settings = {
+  muted: false,
+  leaveTime: "",
+  timeMode: "leave",
+  arriveTime: "",
+  manualTravelMin: 30,
+  transit: defaultTransit,
+  plan: null,
+};
 
 /** 回傳 null 代表首次使用（顯示新手引導） */
 export function loadPresets(): Preset[] | null {
@@ -48,7 +57,16 @@ export const savePresets = (p: Preset[]) => write(K.presets, p);
 export const loadHistory = () => read<StepRecord[]>(K.history, []);
 export const saveHistory = (h: StepRecord[]) => write(K.history, h.slice(-HISTORY_CAP));
 
-export const loadSettings = () => ({ ...defaultSettings, ...read<Partial<Settings>>(K.settings, {}) });
+export const loadSettings = (): Settings => {
+  const raw = read<Partial<Settings> & { plan?: { leaveTime?: string } | null }>(K.settings, {});
+  const s = { ...defaultSettings, ...raw, transit: { ...defaultTransit, ...(raw.transit ?? {}) } } as Settings;
+  // 舊版計劃只有 leaveTime
+  if (s.plan && !(s.plan as { mode?: string }).mode) {
+    const old = s.plan as unknown as { leaveTime?: string };
+    s.plan = { ...s.plan, mode: "leave", time: old.leaveTime ?? "08:30" };
+  }
+  return s;
+};
 export const saveSettings = (s: Settings) => write(K.settings, s);
 
 export const loadSession = () => read<Session | null>(K.session, null);

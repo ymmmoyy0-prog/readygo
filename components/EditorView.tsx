@@ -30,6 +30,7 @@ export default function EditorView({
   const [confirmDel, setConfirmDel] = useState(false);
   const [addOthers, setAddOthers] = useState(false);
   const [totalInput, setTotalInput] = useState("");
+  const [advanced, setAdvanced] = useState(false);
 
   const suggestions = useMemo(() => getSuggestions(draft, history), [draft, history]);
   const total = draft.steps.reduce((a, s) => a + (s.minutes || 0), 0);
@@ -97,7 +98,7 @@ export default function EditorView({
       />
 
       {/* 總時長 */}
-      <section className="border border-ink mb-4 p-4">
+      <section className="mb-4 border border-ink p-4">
         <div className="mb-3 flex items-baseline justify-between">
           <span className="font-semibold text-sub">總時長</span>
           <span className="tnum text-3xl font-extrabold text-ink">
@@ -105,8 +106,9 @@ export default function EditorView({
             <span className="ml-1 text-base font-semibold text-sub">分鐘</span>
           </span>
         </div>
-        <Ruler steps={draft.steps.map((s) => ({ name: s.name, minutes: s.minutes || 0 }))} className="mb-3" />
-        <div className="flex items-center gap-2">
+        <Ruler steps={draft.steps.map((s) => ({ name: s.name, minutes: s.minutes || 0 }))} />
+        {advanced && (
+        <div className="mt-3 flex items-center gap-2">
           <input
             type="number"
             inputMode="numeric"
@@ -125,6 +127,7 @@ export default function EditorView({
             按比例調整至此總時長
           </button>
         </div>
+        )}
       </section>
 
       {suggestions.length > 0 && (
@@ -193,6 +196,7 @@ export default function EditorView({
                 </button>
               </div>
               <span className="text-[15px] text-sub">分鐘</span>
+              {advanced && (
               <button
                 onClick={() => updateStep(s.id, { core: !s.core })}
                 className={`h-9 px-3 text-sm font-semibold ${
@@ -202,6 +206,7 @@ export default function EditorView({
               >
                 {s.core ? "必做" : "可跳過"}
               </button>
+              )}
               <div className="ml-auto flex gap-1">
                 <IconBtn label="上移" onClick={() => move(i, -1)} disabled={i === 0}>
                   ↑
@@ -231,10 +236,15 @@ export default function EditorView({
         ＋ 新增步驟
       </button>
 
-      <p className="mt-3 text-[15px] leading-relaxed text-sub">
-        <span className="font-semibold text-ink">必做</span>：按「時間不足」時必定保留。
-        <span className="font-semibold text-ink">可跳過</span>：時間極度緊迫時會建議跳過。
-      </p>
+      <button onClick={() => setAdvanced((a) => !a)} className="mt-4 text-[15px] font-semibold text-ink underline underline-offset-4">
+        {advanced ? "收起進階設定" : "進階設定"}
+      </button>
+      {advanced && (
+        <p className="mt-2 text-[15px] leading-relaxed text-sub">
+          <span className="font-semibold text-ink">必做</span>：按「時間不足」時必定保留。
+          <span className="font-semibold text-ink">可跳過</span>：時間極度緊迫時會建議跳過。
+        </p>
+      )}
 
       {onboarding && (
         <label className="border border-ink mt-5 flex items-center gap-3 p-4">

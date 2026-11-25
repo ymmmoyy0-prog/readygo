@@ -1,186 +1,203 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Preset, Session, Settings } from "@/lib/types";
-import { fmtClock, leaveTimeToEpoch, todayKey } from "@/lib/time";
+import { fmtClock, todayKey } from "@/lib/time";
+import type { LiveTransit, Target } from "@/lib/target";
+import { listDepartures } from "@/lib/target";
 import ShareModal from "./ShareModal";
-import Flap from "./Flap";
-import Ruler from "./Ruler";
-import StationClock, { Logo } from "./StationClock";
+import Modal from "./Modal";
+import TimeField from "./TimeField";
+import TransitBadge from "./TransitBadge";
+import { Logo } from "./StationClock";
 
 export default function HomeView({
   presets,
   settings,
   session,
+  target,
+  live,
   onSettings,
   onStart,
   onEdit,
   onResume,
   onPlan,
+  onRoutes,
 }: {
   presets: Preset[];
   settings: Settings;
   session: Session | null;
+  target: Target;
+  live: LiveTransit & { error: string | null };
   onSettings: (s: Settings) => void;
-  onStart: (p: Preset, leaveTime?: string) => void;
+  onStart: (p: Preset, fromPlan?: boolean) => void;
   onEdit: (id: string | null) => void;
   onResume: () => void;
   onPlan: () => void;
+  onRoutes: () => void;
 }) {
   const [sharing, setSharing] = useState<Preset | Preset[] | null>(null);
+  const [menu, setMenu] = useState<Preset | null>(null);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(t);
   }, []);
 
-  const leaveAt = settings.leaveTime ? leaveTimeToEpoch(settings.leaveTime, now) : null;
+  const arrive = settings.timeMode === "arrive";
+  const time = arrive ? settings.arriveTime : settings.leaveTime;
+  const setTime = (v: string) => onSettings(arrive ? { ...settings, arriveTime: v } : { ...settings, leaveTime: v });
   const plan = settings.plan && settings.plan.date === todayKey(now) ? settings.plan : null;
   const planPreset = plan ? presets.find((p) => p.id === plan.presetId) : null;
+  const route = settings.transit.primary;
+  // 主頁未開始準備：以第一個模式的時長估算何時可以出門
+  const prepSec = (presets[0]?.steps.reduce((a, s) => a + s.minutes, 0) ?? 0) * 60;
+  const deps = listDepartures(settings, live, prepSec, now);
+  const shownDep = target.dep ?? deps.find((d) => d.catchable)?.dep ?? null;
 
   return (
-    <main className="mx-auto min-h-dvh max-w-lg bg-paper pb-12">
-      <header className="flex items-center gap-3 border-b-[3px] border-ink px-5 pb-4 pt-6">
-        <Logo />
-        <div>
-          <p className="text-xs font-extrabold tracking-[0.16em] text-danger">READYGO</p>
-          <h1 className="text-[1.6rem] font-extrabold leading-tight text-ink">出門精算師</h1>
-        </div>
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col bg-paper">
+      <header className="flex items-center gap-2.5 border-b-[3px] border-ink px-5 py-4">
+        <Logo size={28} />
+        <h1 className="text-xl font-extrabold text-ink">出門精算師</h1>
       </header>
 
       {session && !session.finishedAt && (
-        <button onClick={onResume} className="flex w-full items-center justify-between bg-ink px-5 py-4 text-left text-white">
-          <span>
-            <span className="block text-sm text-white/70">進行中</span>
-            <span className="text-lg font-bold">{session.presetName}</span>
-          </span>
-          <span className="text-lg font-bold">繼續 →</span>
+        <button onClick={onResume} className="flex w-full items-center justify-between bg-ink px-5 py-3.5 text-left text-white">
+          <span className="font-bold">進行中：{session.presetName}</span>
+          <span className="font-bold">繼續 →</span>
         </button>
       )}
 
-      {/* 出門時間 */}
-      <section className="flex items-center gap-4 border-b border-ink px-5 py-5">
-        <StationClock size={88} />
-        <div className="min-w-0 flex-1">
-          <label htmlFor="leave" className="block text-sm text-sub">
-            今日出門時間
-          </label>
-          <div className="relative mt-1 inline-block">
-            {settings.leaveTime ? (
-              <Flap text={settings.leaveTime} style={{ fontSize: 40 }} />
-            ) : (
-              <span className="inline-flex h-[49px] items-center border-[1.5px] border-dashed border-ink px-3 font-bold text-ink">
-                設定時間
-              </span>
-            )}
-            <input
-              id="leave"
-              type="time"
-              value={settings.leaveTime}
-              onChange={(e) => onSettings({ ...settings, leaveTime: e.target.value })}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              aria-label="今日出門時間"
-            />
-          </div>
-          {settings.leaveTime && (
+      {plan && planPreset && (
+        <div className="flex items-center justify-between gap-3 border-b border-ink bg-warn-soft px-5 py-3">
+          <span className="min-w-0 text-[15px] text-ink">
+            今日計劃：<b>{planPreset.name}</b>・{plan.mode === "arrive" ? `${plan.time} 到達` : `${plan.time} 出門`}
+          </span>
+          <button onClick={() => onStart(planPreset, true)} className="h-10 shrink-0 bg-ink px-3 text-[15px] font-bold text-white">
+            開始
+          </button>
+        </div>
+      )}
+
+      {/* 時間 */}
+      <section className="border-b border-ink px-5 py-5">
+        <div className="mb-4 grid grid-cols-2 border-[1.5px] border-ink">
+          {(["leave", "arrive"] as const).map((m, i) => (
             <button
-              onClick={() => onSettings({ ...settings, leaveTime: "" })}
-              className="ml-3 align-top text-sm text-sub underline underline-offset-4"
+              key={m}
+              onClick={() => onSettings({ ...settings, timeMode: m })}
+              className={`h-10 text-[15px] font-bold ${i ? "border-l-[1.5px] border-ink" : ""} ${
+                settings.timeMode === m ? "bg-ink text-white" : "text-ink"
+              }`}
             >
-              清除
+              {m === "leave" ? "出門時間" : "到達時間"}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-end justify-between gap-3">
+          <TimeField id="main-time" value={time} onChange={setTime} />
+          {arrive && target.leaveAt !== null && (
+            <div className="text-right">
+              <div className="text-[13px] text-sub">{target.source === "live" ? "應出門" : "應出門（估算）"}</div>
+              <div className="tnum text-[1.75rem] font-extrabold leading-tight text-ink">{fmtClock(target.leaveAt)}</div>
+            </div>
+          )}
+        </div>
+        <div className="mt-3 flex min-w-0 items-center gap-2 text-[15px] text-ink">
+          {route ? (
+            <>
+              <TransitBadge route={route} />
+              <span className="truncate text-sub">
+                {route.from.name} → {route.to.name}
+              </span>
+              {shownDep && <span className="tnum ml-auto shrink-0 font-bold">{fmtClock(shownDep.board)} 班次</span>}
+            </>
+          ) : (
+            <button onClick={onRoutes} className="text-sub underline underline-offset-4">
+              {arrive ? `未設定交通路線，暫以路程 ${settings.manualTravelMin} 分鐘計算` : "設定交通路線，查看實時班次"}
             </button>
           )}
         </div>
+        {route && live.error && <p className="mt-1 text-[13px] text-danger">{live.error}</p>}
       </section>
 
-      {/* 預早計劃 */}
-      {plan && planPreset ? (
-        <section className="border-b border-ink bg-warn-soft px-5 py-4">
-          <p className="text-sm font-bold text-warn">今日計劃</p>
-          <p className="mt-1 text-[17px] leading-relaxed text-ink">
-            {planPreset.name}・{plan.leaveTime} 出門
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button
-              onClick={() => onStart(planPreset, plan.leaveTime)}
-              className="h-12 flex-1 bg-ink font-bold text-white"
-            >
-              按計劃開始
-            </button>
-            <button onClick={onPlan} className="h-12 border-[1.5px] border-ink px-4 font-bold text-ink">
-              修改
-            </button>
-          </div>
-        </section>
-      ) : (
-        <button onClick={onPlan} className="flex w-full items-center justify-between border-b border-ink px-5 py-4 text-left">
-          <span>
-            <span className="block font-bold text-ink">預早計劃</span>
-            <span className="text-[15px] text-sub">前一晚計算何時起床、何時開始準備</span>
-          </span>
-          <span className="text-xl text-ink">→</span>
-        </button>
-      )}
-
-      {/* 時刻表 */}
-      <div className="flex items-baseline justify-between px-5 pb-2 pt-6">
-        <h2 className="text-lg font-extrabold text-ink">出門模式</h2>
-        {presets.length > 1 && (
-          <button onClick={() => setSharing(presets)} className="text-[15px] font-semibold text-ink underline underline-offset-4">
-            分享／備份全部
-          </button>
-        )}
-      </div>
-
-      <div className="border-t border-ink px-5">
+      {/* 模式 */}
+      <div>
         {presets.map((p) => {
           const total = p.steps.reduce((a, s) => a + s.minutes, 0);
-          const startBy = leaveAt ? leaveAt - total * 60_000 : null;
+          const startBy = target.leaveAt !== null ? target.leaveAt - total * 60_000 : null;
           const late = startBy !== null && startBy < now;
           return (
-            <article key={p.id} className="border-b border-line py-4">
-              <div className="grid grid-cols-[4.2rem_1fr_auto] items-start gap-3">
-                <div>
-                  <div className={`tnum text-[1.35rem] font-extrabold leading-tight ${late ? "text-danger" : "text-ink"}`}>
-                    {startBy !== null ? fmtClock(startBy) : "--:--"}
-                  </div>
-                  <div className="text-xs text-sub">開始</div>
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-[1.15rem] font-extrabold leading-snug text-ink">{p.name}</h3>
-                  <p className="mt-0.5 text-[14px] leading-relaxed text-sub">{p.steps.map((s) => s.name).join("・")}</p>
-                  {late && <p className="mt-1 text-[13px] font-bold text-danger">已遲 {Math.ceil((now - startBy!) / 60000)} 分鐘</p>}
-                </div>
-                <span className="tnum border-[1.5px] border-ink px-2 py-0.5 text-[15px] font-extrabold text-ink">{total}′</span>
-              </div>
-              <div className="ml-[4.95rem] mt-3">
-                <Ruler steps={p.steps} />
-              </div>
-              <div className="ml-[4.95rem] mt-3 grid grid-cols-[1fr_auto_auto] border-[1.5px] border-ink">
-                <button
-                  onClick={() => onStart(p)}
-                  disabled={p.steps.length === 0}
-                  className="h-11 bg-ink font-bold text-white disabled:opacity-40"
-                >
-                  開始 →
-                </button>
-                <button onClick={() => onEdit(p.id)} className="h-11 border-x-[1.5px] border-ink px-4 font-bold text-ink">
-                  編輯
-                </button>
-                <button onClick={() => setSharing(p)} className="h-11 px-4 font-bold text-ink">
-                  分享
-                </button>
-              </div>
-            </article>
+            <div key={p.id} className="grid grid-cols-[3.9rem_1fr_auto_auto] items-center gap-3 border-b border-line px-5 py-3.5">
+              <span className={`tnum text-[1.2rem] font-extrabold ${late ? "text-danger" : "text-ink"}`}>
+                {startBy !== null ? fmtClock(startBy) : "--:--"}
+              </span>
+              <button onClick={() => setMenu(p)} className="min-w-0 truncate text-left text-[17px] font-extrabold text-ink">
+                {p.name}
+              </button>
+              <span className="tnum text-[15px] text-sub">{total}′</span>
+              <button
+                onClick={() => onStart(p)}
+                disabled={p.steps.length === 0}
+                className="h-10 bg-ink px-4 text-[15px] font-bold text-white disabled:opacity-40"
+              >
+                開始
+              </button>
+            </div>
           );
         })}
-      </div>
-
-      <div className="px-5">
-        <button onClick={() => onEdit(null)} className="mt-5 h-13 w-full border-[1.5px] border-ink py-3.5 font-bold text-ink">
+        <button onClick={() => onEdit(null)} className="w-full px-5 py-3.5 text-left text-[15px] font-semibold text-sub">
           ＋ 新增出門模式
         </button>
-        <p className="mt-8 text-center text-sm text-faint">所有資料只儲存於此裝置，無需登入。</p>
       </div>
+
+      <nav className="mt-auto border-t border-ink">
+        {[
+          ["明天的計劃", onPlan],
+          ["交通路線", onRoutes],
+        ].map(([label, fn]) => (
+          <button
+            key={label as string}
+            onClick={fn as () => void}
+            className="flex w-full items-center justify-between border-b border-line px-5 py-4 font-bold text-ink"
+          >
+            <span>{label as string}</span>
+            <span>→</span>
+          </button>
+        ))}
+        {presets.length > 1 && (
+          <button onClick={() => setSharing(presets)} className="w-full px-5 py-4 text-left text-[15px] text-sub">
+            分享／備份全部模式
+          </button>
+        )}
+      </nav>
+
+      <Modal open={!!menu} title={menu?.name ?? ""} onClose={() => setMenu(null)}>
+        <div className="grid gap-2">
+          <button
+            onClick={() => {
+              const id = menu!.id;
+              setMenu(null);
+              onEdit(id);
+            }}
+            className="h-14 bg-ink text-lg font-bold text-white"
+          >
+            編輯
+          </button>
+          <button
+            onClick={() => {
+              setSharing(menu);
+              setMenu(null);
+            }}
+            className="h-14 border-[1.5px] border-ink text-lg font-bold text-ink"
+          >
+            分享
+          </button>
+          <button onClick={() => setMenu(null)} className="h-12 text-sub">
+            取消
+          </button>
+        </div>
+      </Modal>
 
       <ShareModal preset={sharing} onClose={() => setSharing(null)} />
     </main>

@@ -19,8 +19,10 @@ import { speak, stopSpeech } from "@/lib/speech";
 import { useWakeLock } from "@/lib/wakeLock";
 import Modal from "./Modal";
 import Flap from "./Flap";
-import Ruler, { RulerLabels } from "./Ruler";
-import { StepRing } from "./StationClock";
+import Ruler from "./Ruler";
+import TransitBadge from "./TransitBadge";
+import type { LiveTransit } from "@/lib/target";
+import { listDepartures } from "@/lib/target";
 
 const EXTEND_WINDOW_MS = 30_000;
 
@@ -33,7 +35,12 @@ export default function TimerView({
   onUnrecord,
   onFinish,
   onExit,
+  live,
+  liveLeave,
 }: {
+  live: LiveTransit;
+  /** 到達模式下按實時班次更新的最晚出門時間 */
+  liveLeave: number | null;
   session: Session;
   settings: Settings;
   onSettings: (s: Settings) => void;
@@ -78,7 +85,8 @@ export default function TimerView({
   const stepRemain = cur.plannedSec - elapsed;
   const overtime = stepRemain < 0;
   const totalRemain = totalRemaining(s, now);
-  const leaveLeft = s.targetLeave !== null ? (s.targetLeave - now) / 1000 : null;
+  const leaveTarget = liveLeave ?? s.targetLeave;
+  const leaveLeft = leaveTarget !== null ? (leaveTarget - now) / 1000 : null;
   const buffer = leaveLeft !== null ? leaveLeft - totalRemain : null;
   const paused = s.pausedAt !== null;
   const activeCount = s.steps.filter((x) => !x.skip).length;
@@ -176,59 +184,46 @@ export default function TimerView({
     if (!settings.muted) speak("已壓縮餘下步驟");
   };
 
+  const nextDep = listDepartures(settings, live, totalRemain, now).find((d) => d.catchable) ?? null;
   const ruleSteps = s.steps.map((st) => ({ name: st.name, minutes: st.plannedSec / 60, skip: st.skip }));
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-paper">
       {/* 頂部列 */}
-      <div className="flex shrink-0 items-center gap-2 border-b-[3px] border-ink px-3 py-2">
-        <button onClick={() => setExitOpen(true)} className="h-10 px-1 text-[15px] font-semibold text-ink" aria-label="結束流程">
-          ✕ 結束
+      <div className="flex shrink-0 items-center gap-2 border-b-[3px] border-ink px-3 py-1.5">
+        <button onClick={() => setExitOpen(true)} className="h-10 w-10 text-lg font-bold text-ink" aria-label="結束流程">
+          ✕
         </button>
         <div className="min-w-0 flex-1 truncate text-center text-[15px] font-bold text-ink">
           {s.presetName}
           {s.compressed && <span className="ml-1 text-danger">・已壓縮</span>}
         </div>
-        <span className={`text-xs font-semibold ${wake === "on" ? "text-ink" : "text-faint"}`} title="螢幕常亮">
-          {wake === "on" ? "☀ 常亮" : wake === "unsupported" ? "☀ 不支援" : "☀ 未啟用"}
-        </span>
         <button
           onClick={() => onSettings({ ...settings, muted: !settings.muted })}
           className={`h-10 w-10 text-lg ${settings.muted ? "text-faint" : "text-ink"}`}
           aria-label={settings.muted ? "開啟語音" : "靜音"}
+          title={wake === "on" ? "螢幕常亮中" : undefined}
         >
           {settings.muted ? "🔇" : "🔊"}
         </button>
       </div>
 
       {/* 資訊區 */}
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-[1.4dvh] overflow-hidden px-4">
-        <div className="flex items-center gap-3">
-          <StepRing fraction={cur.plannedSec ? elapsed / cur.plannedSec : 0} size={56} danger={overtime} />
-          <div className="min-w-0">
-            <div className="text-[13px] font-semibold text-sub">
-              第 {activePos} 站／共 {activeCount} 站
-            </div>
-            <div className="truncate font-extrabold leading-tight text-ink" style={{ fontSize: "min(8.5vw, 4.6dvh)" }}>
-              {cur.name}
-            </div>
+      <div className="flex min-h-0 flex-1 flex-col justify-center gap-[1.6dvh] overflow-hidden px-5">
+        <div>
+          <div className="text-[14px] text-sub">
+            第 {activePos} 站／共 {activeCount} 站
+            {paused && <b className="ml-2 text-ink">・已暫停</b>}
+            {overtime && !paused && <b className="ml-2 text-danger">・已超時</b>}
+          </div>
+          <div className="truncate font-extrabold leading-tight text-ink" style={{ fontSize: "min(8.5vw, 4.6dvh)" }}>
+            {cur.name}
           </div>
         </div>
 
         <div className={paused ? "opacity-35" : overtime ? "overtime-pulse" : ""}>
-          <Flap text={fmtDuration(stepRemain, true)} danger={overtime} style={{ fontSize: "min(17vw, 9dvh)" }} />
+          <Flap text={fmtDuration(stepRemain, true)} danger={overtime} style={{ fontSize: "min(18vw, 9.5dvh)" }} />
         </div>
-        {!autoStep && (
-        <div className={`text-[15px] font-semibold ${overtime ? "text-danger" : "text-sub"}`}>
-          {paused
-            ? "已暫停"
-            : overtime
-              ? "此步驟已超時，完成後請按下方按鈕"
-              : next
-                ? "此步驟尚餘・時間到自動進入下一站"
-                : "此步驟尚餘"}
-        </div>
-        )}
 
         {autoStep && (
           <div className="flex items-center gap-2 border border-ink bg-warn-soft py-1 pl-3 pr-1">
@@ -239,34 +234,36 @@ export default function TimerView({
           </div>
         )}
 
-        <div className="grid grid-cols-2 border-y border-ink">
-          <div className="py-1.5">
-            <div className="text-[13px] text-sub">總剩餘準備</div>
-            <div className="tnum text-[1.7rem] font-extrabold leading-tight text-ink">{fmtDuration(totalRemain)}</div>
-          </div>
-          <div className="border-l border-ink py-1.5 pl-3">
-            {buffer === null || s.targetLeave === null ? (
-              <>
-                <div className="text-[13px] text-sub">預計完成</div>
-                <div className="tnum text-[1.7rem] font-extrabold leading-tight text-ink">{fmtClock(now + totalRemain * 1000)}</div>
-              </>
-            ) : (
-              <>
-                <div className="text-[13px] text-sub">{fmtClock(s.targetLeave)} 出門・緩衝</div>
-                <div className={`tnum text-[1.7rem] font-extrabold leading-tight ${buffer >= 0 ? "text-ok" : "text-danger"}`}>
-                  {buffer >= 0 ? `+${Math.floor(buffer / 60)} 分鐘` : `遲 ${Math.ceil(-buffer / 60)} 分鐘`}
-                </div>
-              </>
-            )}
-          </div>
+        <div className="flex gap-5 border-y border-ink py-2.5 text-[17px] text-ink">
+          <span>
+            尚餘 <b className="tnum">{fmtDuration(totalRemain)}</b>
+          </span>
+          {buffer !== null ? (
+            <span>
+              緩衝{" "}
+              <b className={buffer >= 0 ? "text-ok" : "text-danger"}>
+                {buffer >= 0 ? `+${Math.floor(buffer / 60)} 分` : `遲 ${Math.ceil(-buffer / 60)} 分`}
+              </b>
+            </span>
+          ) : (
+            <span>
+              預計 <b className="tnum">{fmtClock(now + totalRemain * 1000)}</b> 完成
+            </span>
+          )}
         </div>
 
-        {!autoStep && (
-          <div>
-            <Ruler steps={ruleSteps} progress={progress} />
-            <RulerLabels steps={ruleSteps} />
+        {!autoStep && <Ruler steps={ruleSteps} progress={progress} />}
+
+        {nextDep ? (
+          <div className="flex min-w-0 items-center gap-2 text-[15px] text-ink">
+            <TransitBadge route={nextDep.route} />
+            <span className="tnum truncate">
+              {fmtClock(nextDep.dep.board)} 到站・<span className="text-sub">{fmtClock(nextDep.dep.leaveBy)} 前出門</span>
+            </span>
           </div>
-        )}
+        ) : leaveTarget !== null ? (
+          <div className="text-[15px] text-sub">{fmtClock(leaveTarget)} 出門</div>
+        ) : null}
       </div>
 
       {/* 小按鈕 */}
