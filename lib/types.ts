@@ -23,10 +23,21 @@ export interface StepRecord {
   at: number;
 }
 
+export interface Plan {
+  presetId: string;
+  /** 出門時間 "HH:MM" */
+  leaveTime: string;
+  /** 起床後至開始準備的緩衝分鐘 */
+  wakeBufferMin: number;
+  /** 計劃日期 "YYYY-MM-DD"（本地時間） */
+  date: string;
+}
+
 export interface Settings {
   muted: boolean;
   /** 手動目標出門時間 "HH:MM"，空字串代表未設定 */
   leaveTime: string;
+  plan: Plan | null;
 }
 
 export interface RunStep {
@@ -56,4 +67,6 @@ export interface Session {
   actuals: Record<string, number>;
   compressed: boolean;
   finishedAt: number | null;
+  /** 最近一次自動進入下一步：被自動完成的步驟索引與時間，用於顯示「延長」 */
+  autoFrom?: { index: number; at: number } | null;
 }

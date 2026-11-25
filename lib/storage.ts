@@ -28,7 +28,7 @@ function write(key: string, value: unknown) {
   }
 }
 
-export const defaultSettings: Settings = { muted: false, leaveTime: "" };
+export const defaultSettings: Settings = { muted: false, leaveTime: "", plan: null };
 
 /** 回傳 null 代表首次使用（顯示新手引導） */
 export function loadPresets(): Preset[] | null {

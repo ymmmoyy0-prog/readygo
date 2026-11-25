@@ -72,6 +72,7 @@ export function advance(s: Session, now: number): AdvanceResult {
       pausedAt: null,
       pausedMs: 0,
       finishedAt: finished ? now : null,
+      autoFrom: null,
     },
   };
 }
@@ -93,8 +94,53 @@ export function goBack(s: Session, now: number): { session: Session; removedStep
       stepStartedAt: now - carried * 1000,
       pausedAt: null,
       pausedMs: 0,
+      autoFrom: null,
     },
   };
+}
+
+export interface AutoResult {
+  session: Session;
+  records: { stepId: string; stepName: string; plannedSec: number; actualSec: number; at: number }[];
+}
+
+/**
+ * 自動進入下一步：倒數歸零的步驟視為按預定時長完成。
+ * App 在背景期間可能已過多個步驟，因此逐步推算。最後一步不會自動完成，改為顯示超時。
+ */
+export function autoAdvance(s: Session, now: number): AutoResult | null {
+  if (s.pausedAt !== null || s.finishedAt) return null;
+  let cur = s;
+  const records: AutoResult["records"] = [];
+  for (;;) {
+    const step = cur.steps[cur.index];
+    const next = nextActiveIndex(cur.steps, cur.index);
+    if (next === -1) break;
+    const endAt = cur.stepStartedAt + cur.pausedMs + step.plannedSec * 1000;
+    if (endAt > now) break;
+    const actual = Math.round(step.plannedSec);
+    records.push({ stepId: step.id, stepName: step.name, plannedSec: step.origSec, actualSec: actual, at: endAt });
+    cur = {
+      ...cur,
+      actuals: { ...cur.actuals, [step.id]: actual },
+      index: next,
+      stepStartedAt: endAt,
+      pausedMs: 0,
+      pausedAt: null,
+      autoFrom: { index: cur.index, at: endAt },
+    };
+  }
+  return records.length ? { session: cur, records } : null;
+}
+
+/** 未完成而被自動跳過：返回該步驟，並在已用時間上再加 addSec 秒 */
+export function extendPrevious(s: Session, now: number, addSec = 120): { session: Session; removedStepId: string } | null {
+  const r = goBack(s, now);
+  if (!r) return null;
+  const idx = r.session.index;
+  const used = stepElapsed(r.session, now);
+  const steps = r.session.steps.map((st, i) => (i === idx ? { ...st, plannedSec: Math.ceil(used) + addSec } : st));
+  return { removedStepId: r.removedStepId, session: { ...r.session, steps, autoFrom: null } };
 }
 
 export function togglePause(s: Session, now: number): Session {
@@ -141,7 +187,7 @@ export function planCompression(s: Session, availableSec: number, now: number): 
       mode: "enough",
       steps,
       currentPlannedSec: cur.plannedSec,
-      message: "時間仲夠，唔使壓縮。",
+      message: "時間充裕，無須壓縮。",
     };
   }
 
@@ -176,10 +222,10 @@ export function planCompression(s: Session, availableSec: number, now: number): 
   const skipped = items.filter((it) => steps[it.idx].skip).length;
   const message =
     mode === "impossible"
-      ? `就算壓到最短都要約 ${Math.ceil(resultTotal / 60)} 分鐘，建議通知對方會遲到。`
+      ? `即使壓縮至最短，仍需約 ${Math.ceil(resultTotal / 60)} 分鐘，建議預先通知對方將會遲到。`
       : mode === "skip"
-        ? `時間極度緊迫：${skipped} 個非核心步驟建議跳過，其餘按比例壓縮至 ${Math.round(scale * 100)}%。`
-        : `所有剩餘步驟按比例壓縮至 ${Math.round(scale * 100)}%。`;
+        ? `時間極度緊迫：建議跳過 ${skipped} 個可略過的步驟，其餘按比例壓縮至 ${Math.round(scale * 100)}%。`
+        : `所有餘下步驟按比例壓縮至 ${Math.round(scale * 100)}%。`;
 
   return {
     availableSec: avail,

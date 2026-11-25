@@ -1,22 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: #f6f3ee;
+  --color-paper: #ffffff;
   --color-card: #ffffff;
-  --color-ink: #1d2125;
-  --color-sub: #5b626b;
-  --color-faint: #8e959d;
-  --color-line: #e6e0d6;
-  --color-brand: #2e6b5c;
-  --color-brand-strong: #22544a;
-  --color-brand-soft: #e2eee9;
-  --color-warn: #9a5a0c;
-  --color-warn-soft: #fbf0dc;
-  --color-danger: #c4352a;
-  --color-danger-soft: #fbe5e2;
-  --color-ok: #23704a;
-  --color-ok-soft: #e2f2e8;
-  --color-coral: #d9573a;
+  --color-ink: #111111;
+  --color-sub: #555555;
+  --color-faint: #8a8a8a;
+  --color-line: #d9d9d9;
+  --color-brand: #111111;
+  --color-brand-strong: #000000;
+  --color-brand-soft: #f1f1f1;
+  --color-warn: #a85a00;
+  --color-warn-soft: #fbf1e0;
+  --color-danger: #d52b1e;
+  --color-danger-soft: #fdecea;
+  --color-ok: #1f7a45;
+  --color-ok-soft: #e7f3ec;
+  --color-coral: #d52b1e;
+  --color-flap: #1a1a1a;
 }
 
 :root {
@@ -63,8 +64,56 @@ button:focus-visible {
 .card {
   background: var(--color-card);
   border: 1px solid var(--color-line);
-  border-radius: 1.5rem;
-  box-shadow: 0 1px 2px rgb(29 33 37 / 0.04), 0 4px 16px rgb(29 33 37 / 0.04);
+}
+
+/* 全站直角 */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* 翻牌數字 */
+.flap {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0.06em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.flap > .tile {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.74em;
+  height: 1.22em;
+  background: var(--color-flap);
+  color: #fff;
+}
+.flap > .tile::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(2px, 0.03em);
+  background: #000;
+  opacity: 0.85;
+}
+.flap > .sep {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.32em;
+  color: var(--color-ink);
+}
+.flap.danger > .tile {
+  color: #ff5a4a;
+}
+.flap.danger > .sep {
+  color: var(--color-danger);
 }
 
 @keyframes overtime-pulse {

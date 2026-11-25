@@ -32,3 +32,18 @@ export function fmtMinutesLabel(sec: number): string {
   const m = Math.round(sec / 60);
   return `${m} 分鐘`;
 }
+
+/** 本地日期 "YYYY-MM-DD" */
+export function todayKey(now = Date.now(), addDays = 0): string {
+  const d = new Date(now);
+  d.setDate(d.getDate() + addDays);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** 指定日期的 "HH:MM" -> epoch ms */
+export function dateTimeToEpoch(dateKey: string, hhmm: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!m || !d) return null;
+  return new Date(Number(d[1]), Number(d[2]) - 1, Number(d[3]), Number(m[1]), Number(m[2])).getTime();
+}

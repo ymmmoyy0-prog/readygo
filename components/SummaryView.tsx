@@ -32,25 +32,25 @@ export default function SummaryView({
 
   return (
     <main className="mx-auto min-h-dvh max-w-lg px-4 pb-10 pt-6">
-      <p className="text-sm font-semibold tracking-wide text-brand">完成</p>
-      <h1 className="text-[1.85rem] font-extrabold leading-tight text-ink">今次用咗 {Math.round(actualTotal / 60)} 分鐘</h1>
+      <p className="text-sm font-semibold tracking-wide text-ink">完成</p>
+      <h1 className="text-[1.85rem] font-extrabold leading-tight text-ink">今次用了 {Math.round(actualTotal / 60)} 分鐘</h1>
       <p className="mb-5 mt-1 text-[15px] text-sub">
         {session.presetName}・{fmtClock(session.startedAt)} 開始，{fmtClock(endedAt)} 完成
       </p>
 
       {leaveDiff !== null && (
         <div
-          className={`mb-4 rounded-3xl p-4 text-lg font-bold ${
+          className={`mb-4 p-4 text-lg font-bold ${
             leaveDiff <= 0 ? "bg-ok-soft text-ok" : "bg-danger-soft text-danger"
           }`}
         >
           {leaveDiff <= 0
-            ? `比目標出門時間早 ${Math.floor(-leaveDiff / 60)} 分鐘 ✓`
+            ? `比目標出門時間早 ${Math.floor(-leaveDiff / 60)} 分鐘`
             : `比目標出門時間遲 ${Math.ceil(leaveDiff / 60)} 分鐘`}
         </div>
       )}
 
-      <section className="card mb-4 p-4">
+      <section className="border border-ink mb-4 p-4">
         <h2 className="mb-3 text-lg font-bold text-ink">預估 vs 實際耗時</h2>
         <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-2.5 text-base text-ink">
           <span className="text-[13px] font-semibold text-sub">步驟</span>
@@ -75,8 +75,8 @@ export default function SummaryView({
       </section>
 
       {preset && suggestions.length > 0 && !updated && (
-        <section className="mb-4 rounded-3xl border border-warn/25 bg-warn-soft p-4">
-          <h2 className="mb-2 text-lg font-bold text-warn">你可能低估咗呢啲步驟</h2>
+        <section className="mb-4 border border-warn/25 bg-warn-soft p-4">
+          <h2 className="mb-2 text-lg font-bold text-warn">以下步驟可能被低估</h2>
           <ul className="mb-3 space-y-2 leading-relaxed text-ink">
             {suggestions.map((s) => (
               <li key={s.stepId}>
@@ -93,19 +93,19 @@ export default function SummaryView({
               onUpdatePreset(applySuggestions(preset, suggestions));
               setUpdated(true);
             }}
-            className="h-14 w-full rounded-2xl bg-warn text-lg font-bold text-white"
+            className="h-14 w-full bg-warn text-lg font-bold text-white"
           >
             一鍵更新為實際平均時間
           </button>
         </section>
       )}
       {updated && (
-        <p className="mb-4 rounded-3xl bg-ok-soft p-4 font-semibold text-ok">
-          ✓ 已更新「{preset?.name}」嘅步驟時間
+        <p className="mb-4 bg-ok-soft p-4 font-semibold text-ok">
+          ✓ 已更新「{preset?.name}」的步驟時間
         </p>
       )}
 
-      <button onClick={onDone} className="h-16 w-full rounded-2xl bg-brand text-xl font-bold text-white active:bg-brand-strong">
+      <button onClick={onDone} className="h-16 w-full bg-ink text-xl font-bold text-white active:bg-brand-strong">
         返回主頁
       </button>
     </main>
@@ -133,10 +133,10 @@ function Row({
       <span className="tnum text-right">{actual !== null ? fmtDuration(actual) : skip ? "跳過" : "—"}</span>
       <span
         className={`tnum text-right font-semibold ${
-          diff === null ? "text-faint" : over ? "text-danger" : diff > 0 ? "text-warn" : "text-ok"
+          diff === null || Math.abs(diff) < 1 ? "text-sub" : over ? "text-danger" : diff > 0 ? "text-warn" : "text-ok"
         }`}
       >
-        {diff === null ? "" : `${diff > 0 ? "+" : "−"}${fmtDuration(Math.abs(diff))}`}
+        {diff === null ? "" : Math.abs(diff) < 1 ? "準時" : `${diff > 0 ? "+" : "−"}${fmtDuration(Math.abs(diff))}`}
       </span>
     </>
   );

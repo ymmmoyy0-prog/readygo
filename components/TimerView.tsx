@@ -4,6 +4,8 @@ import type { Session, Settings, StepRecord } from "@/lib/types";
 import {
   advance,
   applyCompression,
+  autoAdvance,
+  extendPrevious,
   goBack,
   nextActiveIndex,
   planCompression,
@@ -16,7 +18,11 @@ import { fmtClock, fmtDuration } from "@/lib/time";
 import { speak, stopSpeech } from "@/lib/speech";
 import { useWakeLock } from "@/lib/wakeLock";
 import Modal from "./Modal";
-import StepBar from "./StepBar";
+import Flap from "./Flap";
+import Ruler, { RulerLabels } from "./Ruler";
+import { StepRing } from "./StationClock";
+
+const EXTEND_WINDOW_MS = 30_000;
 
 export default function TimerView({
   session,
@@ -50,6 +56,21 @@ export default function TimerView({
   }, []);
 
   const s = session;
+
+  /* ---------- 到時自動進入下一步 ---------- */
+  useEffect(() => {
+    const r = autoAdvance(s, now);
+    if (!r) return;
+    r.records.forEach((rec) => onRecord({ sessionId: s.id, presetId: s.presetId, ...rec }));
+    onSession(r.session);
+    if (!settings.muted) {
+      const done = r.records[r.records.length - 1];
+      const n = r.session.steps[r.session.index];
+      stopSpeech();
+      speak(`${done.stepName}時間已到，現在進行${n.name}`);
+    }
+  }, [now, s, settings.muted, onRecord, onSession]);
+
   const cur = s.steps[s.index];
   const nextIdx = nextActiveIndex(s.steps, s.index);
   const next = nextIdx >= 0 ? s.steps[nextIdx] : null;
@@ -62,6 +83,13 @@ export default function TimerView({
   const paused = s.pausedAt !== null;
   const activeCount = s.steps.filter((x) => !x.skip).length;
   const activePos = s.steps.slice(0, s.index + 1).filter((x) => !x.skip).length;
+  const plannedTotal = s.steps.reduce((a, x) => a + (x.skip ? 0 : x.plannedSec), 0);
+  const doneSec = s.steps.reduce((a, x, i) => a + (i < s.index && !x.skip ? x.plannedSec : 0), 0);
+  const progress = plannedTotal ? (doneSec + Math.min(elapsed, cur.plannedSec)) / plannedTotal : 0;
+  const autoStep =
+    s.autoFrom && now - s.autoFrom.at < EXTEND_WINDOW_MS && prevActiveIndex(s.steps, s.index) === s.autoFrom.index
+      ? s.steps[s.autoFrom.index]
+      : null;
 
   /* ---------- 語音報時 ---------- */
   useEffect(() => {
@@ -73,18 +101,13 @@ export default function TimerView({
       speak(text);
     };
     if (cur.plannedSec >= 120 && stepRemain <= 60 && stepRemain > 55) {
-      once(`${s.index}:1min`, `${cur.name}仲有一分鐘`);
+      once(`${s.index}:1min`, `${cur.name}尚餘一分鐘`);
     }
-    if (stepRemain <= 0 && stepRemain > -5) {
-      once(
-        `${s.index}:up`,
-        next ? `${cur.name}時間到，該進行${next.name}` : `${cur.name}時間到，準備出門`
-      );
-    }
+    if (!next && stepRemain <= 0 && stepRemain > -5) once(`${s.index}:up`, `${cur.name}時間已到，請準備出門`);
     if (leaveLeft !== null) {
-      if (leaveLeft <= 600 && leaveLeft > 590) once("leave10", "注意，距離最晚出門時間仲有十分鐘");
-      if (leaveLeft <= 300 && leaveLeft > 290) once("leave5", "注意，距離最晚出門時間只剩五分鐘");
-      if (leaveLeft <= 0 && leaveLeft > -10) once("leave0", "已經到最晚出門時間，要即刻出門");
+      if (leaveLeft <= 600 && leaveLeft > 590) once("leave10", "注意，距離最晚出門時間尚餘十分鐘");
+      if (leaveLeft <= 300 && leaveLeft > 290) once("leave5", "注意，距離最晚出門時間只餘五分鐘");
+      if (leaveLeft <= 0 && leaveLeft > -10) once("leave0", "已到最晚出門時間，請立即出門");
     }
   }, [now, settings.muted, paused, s, cur, next, stepRemain, leaveLeft]);
 
@@ -99,7 +122,7 @@ export default function TimerView({
     onRecord({ sessionId: s.id, presetId: s.presetId, at: t, ...r.record });
     onSession(r.session);
     if (r.finished) {
-      if (!settings.muted) speak("全部完成，可以出門，一路順風");
+      if (!settings.muted) speak("全部完成，可以出門");
       onFinish();
     } else if (!settings.muted) {
       const n = r.session.steps[r.session.index];
@@ -115,6 +138,17 @@ export default function TimerView({
     onSession(r.session);
   };
 
+  const handleExtend = () => {
+    const r = extendPrevious(s, Date.now(), 120);
+    if (!r) return;
+    onUnrecord(s.id, r.removedStepId);
+    onSession(r.session);
+    if (!settings.muted) {
+      stopSpeech();
+      speak(`${r.session.steps[r.session.index].name}延長兩分鐘`);
+    }
+  };
+
   const openPanic = () => {
     const def = leaveLeft !== null ? Math.max(0, Math.floor(leaveLeft / 60)) : Math.max(1, Math.floor(totalRemain / 120));
     setPanicMin(String(def));
@@ -126,7 +160,7 @@ export default function TimerView({
     const m = Number(panicMin);
     if (!Number.isFinite(m) || m < 0) return null;
     return planCompression(s, m * 60, now);
-    // 只在打開或修改分鐘時重算，避免每 250ms 跳動
+    // 只在開啟或修改分鐘時重新計算，避免每 250ms 跳動
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panicOpen, panicMin]);
 
@@ -139,39 +173,28 @@ export default function TimerView({
     }
     onSession(updated);
     setPanicOpen(false);
-    if (!settings.muted) speak("已經壓縮剩餘步驟，加油");
+    if (!settings.muted) speak("已壓縮餘下步驟");
   };
 
-  const bigLabel = next ? "完成此步驟" : "全部完成，出門！";
+  const ruleSteps = s.steps.map((st) => ({ name: st.name, minutes: st.plannedSec / 60, skip: st.skip }));
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-paper">
       {/* 頂部列 */}
-      <div className="flex shrink-0 items-center gap-2 px-3 pt-2">
-        <button
-          onClick={() => setExitOpen(true)}
-          className="h-11 w-11 rounded-full border border-line bg-card text-lg text-sub"
-          aria-label="結束流程"
-        >
-          ✕
+      <div className="flex shrink-0 items-center gap-2 border-b-[3px] border-ink px-3 py-2">
+        <button onClick={() => setExitOpen(true)} className="h-10 px-1 text-[15px] font-semibold text-ink" aria-label="結束流程">
+          ✕ 結束
         </button>
-        <div className="min-w-0 flex-1 truncate text-center text-[15px] font-semibold text-sub">
+        <div className="min-w-0 flex-1 truncate text-center text-[15px] font-bold text-ink">
           {s.presetName}
-          {s.compressed && <span className="ml-1 text-coral">・已壓縮</span>}
+          {s.compressed && <span className="ml-1 text-danger">・已壓縮</span>}
         </div>
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-            wake === "on" ? "bg-warn-soft text-warn" : "text-faint"
-          }`}
-          title="螢幕常亮"
-        >
-          {wake === "on" ? "☀ 常亮中" : wake === "unsupported" ? "☀ 不支援" : "☀ 未開"}
+        <span className={`text-xs font-semibold ${wake === "on" ? "text-ink" : "text-faint"}`} title="螢幕常亮">
+          {wake === "on" ? "☀ 常亮" : wake === "unsupported" ? "☀ 不支援" : "☀ 未啟用"}
         </span>
         <button
           onClick={() => onSettings({ ...settings, muted: !settings.muted })}
-          className={`h-11 w-11 rounded-full text-lg ${
-            settings.muted ? "border border-line bg-card text-faint" : "bg-brand-soft text-brand"
-          }`}
+          className={`h-10 w-10 text-lg ${settings.muted ? "text-faint" : "text-ink"}`}
           aria-label={settings.muted ? "開啟語音" : "靜音"}
         >
           {settings.muted ? "🔇" : "🔊"}
@@ -179,102 +202,114 @@ export default function TimerView({
       </div>
 
       {/* 資訊區 */}
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-[1.2dvh] px-4">
-        <div className="text-center text-[15px] font-semibold tracking-wide text-sub">
-          第 {activePos} 步・共 {activeCount} 步
-        </div>
-        <div className="truncate text-center font-extrabold leading-tight text-ink" style={{ fontSize: "min(9vw, 5dvh)" }}>
-          {cur.name}
-        </div>
-        <div
-          className={`tnum text-center font-extrabold leading-none ${
-            overtime ? "overtime-pulse text-danger" : "text-ink"
-          } ${paused ? "opacity-35" : ""}`}
-          style={{ fontSize: "min(23vw, 11dvh)" }}
-          aria-live="off"
-        >
-          {fmtDuration(stepRemain, true)}
-        </div>
-        <div className={`text-center text-base font-semibold ${overtime ? "text-danger" : "text-sub"}`}>
-          {paused ? "⏸ 已暫停" : overtime ? "此步驟已超時" : "此步驟剩餘"}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="card px-2 py-1.5 text-center">
-            <div className="text-[13px] font-semibold text-sub">總剩餘準備</div>
-            <div className="tnum text-[1.7rem] font-bold leading-tight text-ink">{fmtDuration(totalRemain)}</div>
+      <div className="flex min-h-0 flex-1 flex-col justify-center gap-[1.4dvh] overflow-hidden px-4">
+        <div className="flex items-center gap-3">
+          <StepRing fraction={cur.plannedSec ? elapsed / cur.plannedSec : 0} size={56} danger={overtime} />
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-sub">
+              第 {activePos} 站／共 {activeCount} 站
+            </div>
+            <div className="truncate font-extrabold leading-tight text-ink" style={{ fontSize: "min(8.5vw, 4.6dvh)" }}>
+              {cur.name}
+            </div>
           </div>
-          {buffer === null || s.targetLeave === null ? (
-            <div className="card px-2 py-1.5 text-center">
-              <div className="text-[13px] font-semibold text-sub">預計完成</div>
-              <div className="tnum text-[1.7rem] font-bold leading-tight text-ink">{fmtClock(now + totalRemain * 1000)}</div>
-            </div>
-          ) : (
-            <div
-              className={`rounded-3xl px-2 py-1.5 text-center ${buffer >= 0 ? "bg-ok-soft" : "bg-danger-soft"}`}
-            >
-              <div className="text-[13px] font-semibold text-sub">{fmtClock(s.targetLeave)} 出門・緩衝</div>
-              <div className={`tnum text-[1.7rem] font-bold leading-tight ${buffer >= 0 ? "text-ok" : "text-danger"}`}>
-                {buffer >= 0 ? `+${Math.floor(buffer / 60)} 分` : `遲 ${Math.ceil(-buffer / 60)} 分`}
-              </div>
-            </div>
-          )}
         </div>
 
-        <StepBar
-          className=""
-          activeIndex={s.index}
-          steps={s.steps.map((st) => ({ name: st.name, minutes: st.plannedSec / 60, skip: st.skip }))}
-        />
-        <p className="truncate text-center text-[15px] text-sub">
-          {(() => {
-            const later = s.steps.slice(s.index + 1);
-            if (!later.length) return "最後一步";
-            return "之後：" + later.map((st) => (st.skip ? `${st.name}（跳過）` : `${st.name} ${Math.round(st.plannedSec / 60)}′`)).join("・");
-          })()}
-        </p>
+        <div className={paused ? "opacity-35" : overtime ? "overtime-pulse" : ""}>
+          <Flap text={fmtDuration(stepRemain, true)} danger={overtime} style={{ fontSize: "min(17vw, 9dvh)" }} />
+        </div>
+        {!autoStep && (
+        <div className={`text-[15px] font-semibold ${overtime ? "text-danger" : "text-sub"}`}>
+          {paused
+            ? "已暫停"
+            : overtime
+              ? "此步驟已超時，完成後請按下方按鈕"
+              : next
+                ? "此步驟尚餘・時間到自動進入下一站"
+                : "此步驟尚餘"}
+        </div>
+        )}
+
+        {autoStep && (
+          <div className="flex items-center gap-2 border border-ink bg-warn-soft py-1 pl-3 pr-1">
+            <span className="min-w-0 flex-1 truncate text-[15px] text-ink">「{autoStep.name}」已自動完成</span>
+            <button onClick={handleExtend} className="h-11 shrink-0 bg-ink px-3 text-[15px] font-bold text-white">
+              未完成，延長 2 分鐘
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 border-y border-ink">
+          <div className="py-1.5">
+            <div className="text-[13px] text-sub">總剩餘準備</div>
+            <div className="tnum text-[1.7rem] font-extrabold leading-tight text-ink">{fmtDuration(totalRemain)}</div>
+          </div>
+          <div className="border-l border-ink py-1.5 pl-3">
+            {buffer === null || s.targetLeave === null ? (
+              <>
+                <div className="text-[13px] text-sub">預計完成</div>
+                <div className="tnum text-[1.7rem] font-extrabold leading-tight text-ink">{fmtClock(now + totalRemain * 1000)}</div>
+              </>
+            ) : (
+              <>
+                <div className="text-[13px] text-sub">{fmtClock(s.targetLeave)} 出門・緩衝</div>
+                <div className={`tnum text-[1.7rem] font-extrabold leading-tight ${buffer >= 0 ? "text-ok" : "text-danger"}`}>
+                  {buffer >= 0 ? `+${Math.floor(buffer / 60)} 分鐘` : `遲 ${Math.ceil(-buffer / 60)} 分鐘`}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {!autoStep && (
+          <div>
+            <Ruler steps={ruleSteps} progress={progress} />
+            <RulerLabels steps={ruleSteps} />
+          </div>
+        )}
       </div>
 
       {/* 小按鈕 */}
-      <div className="grid shrink-0 grid-cols-3 gap-2 px-3 pb-2">
+      <div className="mx-3 mb-2 grid shrink-0 grid-cols-3 border-[1.5px] border-ink">
         <button
           onClick={handleBack}
           disabled={prevActiveIndex(s.steps, s.index) === -1}
-          className="h-14 rounded-2xl border border-line bg-card font-semibold text-ink disabled:opacity-35"
+          className="py-3 text-base font-bold text-ink disabled:text-faint"
         >
-          ⏮ 上一步
+          上一步
         </button>
         <button
           onClick={() => onSession(togglePause(s, Date.now()))}
-          className="h-14 rounded-2xl border border-line bg-card font-semibold text-ink"
+          className="border-x-[1.5px] border-ink py-3 text-base font-bold text-ink"
         >
-          {paused ? "▶ 繼續" : "⏸ 暫停"}
+          {paused ? "繼續" : "暫停"}
         </button>
-        <button onClick={openPanic} className="h-14 rounded-2xl bg-coral font-bold text-white active:opacity-90">
-          來不及了
+        <button onClick={openPanic} className="bg-danger py-3 text-base font-bold text-white">
+          時間不足
         </button>
       </div>
 
-      {/* 超大完成按鈕：佔畫面 ≥35% */}
+      {/* 完成按鈕：佔畫面約 36% */}
       <button
         onClick={handleNext}
-        className={`mx-3 mb-[max(0.75rem,env(safe-area-inset-bottom))] flex shrink-0 flex-col items-center justify-center rounded-[2rem] shadow-lg active:scale-[0.99] ${
-          overtime ? "bg-[#f4b740] text-ink" : "bg-brand text-white active:bg-brand-strong"
+        className={`relative flex shrink-0 flex-col justify-center px-6 pb-[env(safe-area-inset-bottom)] text-left active:opacity-90 ${
+          overtime ? "bg-danger text-white" : "bg-ink text-white"
         }`}
         style={{ height: "36dvh", minHeight: "35dvh" }}
       >
-        <span className="text-[2.75rem] font-extrabold leading-tight">{bigLabel}</span>
-        <span className="mt-2 text-xl font-semibold opacity-90">
-          {next ? `下一步：${next.name} ▶` : "按一下結束計時"}
+        <span className="absolute inset-x-0 top-0 h-1.5 bg-danger" />
+        <span className="text-[2.6rem] font-extrabold leading-tight">{next ? "提早完成此步" : "全部完成，出門"}</span>
+        <span className="mt-2 text-lg text-white/80">
+          {next ? `下一站　${next.name}　${Math.round(next.plannedSec / 60)} 分鐘 →` : "按此結束計時"}
         </span>
       </button>
 
-      {/* 緊急壓縮 */}
-      <Modal open={panicOpen} title="來不及了：一鍵壓縮" onClose={() => setPanicOpen(false)}>
+      {/* 時間不足 */}
+      <Modal open={panicOpen} title="時間不足：一鍵壓縮" onClose={() => setPanicOpen(false)}>
         <label className="mb-2 block font-semibold text-ink" htmlFor="panic-min">
-          距離目標出門仲有幾多分鐘？
+          距離出門尚有多少分鐘？
         </label>
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex items-center gap-3">
           <input
             id="panic-min"
             type="number"
@@ -282,36 +317,26 @@ export default function TimerView({
             min={0}
             value={panicMin}
             onChange={(e) => setPanicMin(e.target.value)}
-            className="tnum h-14 w-24 rounded-2xl border border-line bg-paper px-3 text-center text-2xl font-bold text-ink"
+            className="tnum h-14 w-24 border-[1.5px] border-ink bg-paper px-3 text-center text-2xl font-bold text-ink"
           />
-          <span className="text-[15px] leading-snug text-sub">分鐘（剩餘步驟需要 {Math.ceil(totalRemain / 60)} 分鐘）</span>
+          <span className="text-[15px] leading-snug text-sub">分鐘（餘下步驟需時 {Math.ceil(totalRemain / 60)} 分鐘）</span>
         </div>
         {plan && (
           <>
-            <p
-              className={`mb-3 font-semibold ${
-                plan.mode === "enough"
-                  ? "text-ok"
-                  : plan.mode === "impossible"
-                    ? "text-danger"
-                    : "text-coral"
-              }`}
-            >
-              {plan.message}
-            </p>
-            <ul className="mb-5 divide-y divide-line overflow-hidden rounded-2xl border border-line">
+            <p className={`mb-3 font-semibold ${plan.mode === "enough" ? "text-ok" : "text-danger"}`}>{plan.message}</p>
+            <ul className="mb-5 border-t border-ink">
               {plan.steps.map((st, i) =>
                 i < s.index ? null : (
-                  <li key={st.id} className="flex justify-between gap-3 px-4 py-2.5">
+                  <li key={st.id} className="flex justify-between gap-3 border-b border-line py-2.5">
                     <span className={st.skip ? "text-faint" : "text-ink"}>
                       <span className={st.skip ? "line-through" : ""}>{st.name}</span>
-                      {st.skip && <span className="ml-2 rounded-full bg-danger-soft px-2 py-0.5 text-xs font-semibold text-coral">建議跳過</span>}
+                      {st.skip && <span className="ml-2 bg-danger px-1.5 py-0.5 text-xs font-bold text-white">建議跳過</span>}
                     </span>
                     <span className="tnum shrink-0 text-sub">
                       {st.skip
                         ? "0:00"
                         : i === s.index
-                          ? `剩 ${fmtDuration(Math.max(0, st.plannedSec - elapsed))}`
+                          ? `餘 ${fmtDuration(Math.max(0, st.plannedSec - elapsed))}`
                           : `${fmtDuration(s.steps[i].plannedSec)} → ${fmtDuration(st.plannedSec)}`}
                     </span>
                   </li>
@@ -321,13 +346,13 @@ export default function TimerView({
           </>
         )}
         <div className="flex gap-2">
-          <button onClick={() => setPanicOpen(false)} className="h-14 flex-1 rounded-2xl border border-line bg-card font-semibold text-ink">
+          <button onClick={() => setPanicOpen(false)} className="h-14 flex-1 border-[1.5px] border-ink font-bold text-ink">
             取消
           </button>
           <button
             onClick={applyPanic}
             disabled={!plan || plan.mode === "enough"}
-            className="h-14 flex-[2] rounded-2xl bg-coral text-lg font-bold text-white disabled:opacity-40"
+            className="h-14 flex-[2] bg-danger text-lg font-bold text-white disabled:opacity-40"
           >
             套用壓縮
           </button>
@@ -335,9 +360,9 @@ export default function TimerView({
       </Modal>
 
       <Modal open={exitOpen} title="結束今次流程？" onClose={() => setExitOpen(false)}>
-        <p className="mb-5 leading-relaxed text-sub">已完成步驟嘅耗時紀錄會保留，用嚟學習你嘅實際速度。</p>
+        <p className="mb-5 leading-relaxed text-sub">已完成步驟的耗時紀錄會保留，用作學習你的實際速度。</p>
         <div className="flex gap-2">
-          <button onClick={() => setExitOpen(false)} className="h-14 flex-1 rounded-2xl border border-line bg-card font-semibold text-ink">
+          <button onClick={() => setExitOpen(false)} className="h-14 flex-1 border-[1.5px] border-ink font-bold text-ink">
             繼續計時
           </button>
           <button
@@ -345,7 +370,7 @@ export default function TimerView({
               stopSpeech();
               onExit();
             }}
-            className="h-14 flex-1 rounded-2xl bg-danger font-bold text-white"
+            className="h-14 flex-1 bg-danger font-bold text-white"
           >
             結束
           </button>

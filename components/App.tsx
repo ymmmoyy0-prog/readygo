@@ -22,14 +22,16 @@ import EditorView from "./EditorView";
 import TimerView from "./TimerView";
 import SummaryView from "./SummaryView";
 import OnboardingView from "./OnboardingView";
+import PlanView from "./PlanView";
 import Modal from "./Modal";
 
 type View =
   | { name: "onboard"; firstRun: boolean }
   | { name: "home" }
-  /** onboarding 為 undefined 代表一般編輯；字串或 null 代表新手引導中揀咗嘅模板 */
+  /** onboarding 為 undefined 代表一般編輯；字串或 null 代表新手引導中選擇的模板 */
   | { name: "edit"; draft: Preset; isNew: boolean; onboarding?: string | null; firstRun?: boolean }
   | { name: "timer" }
+  | { name: "plan" }
   | { name: "summary" };
 
 export default function App() {
@@ -67,7 +69,7 @@ export default function App() {
   const setPresets = useCallback((p: Preset[]) => {
     setPresetsState(p);
     savePresets(p);
-    // 申請持久儲存，減低瀏覽器自動清走資料嘅機會
+    // 申請持久儲存，減低瀏覽器自動清除資料的機會
     navigator.storage?.persist?.().catch(() => {});
   }, []);
   const setHistory = useCallback((fn: (h: StepRecord[]) => StepRecord[]) => {
@@ -108,10 +110,12 @@ export default function App() {
     if (view.name === "onboard") setView({ name: "home" });
   };
 
-  const start = (preset: Preset) => {
-    const target = settings.leaveTime ? leaveTimeToEpoch(settings.leaveTime) : null;
+  const start = (preset: Preset, leaveOverride?: string) => {
+    const leave = leaveOverride ?? settings.leaveTime;
+    if (leaveOverride && leaveOverride !== settings.leaveTime) setSettings({ ...settings, leaveTime: leaveOverride });
+    const target = leave ? leaveTimeToEpoch(leave) : null;
     const s = createSession(preset, target);
-    if (!settings.muted) speak(`開始${preset.name}，第一步：${preset.steps[0].name}`); // 用戶手勢內觸發，解鎖 iOS 語音
+    if (!settings.muted) speak(`開始${preset.name}，第一步，${preset.steps[0].name}`); // 於用戶操作內觸發，解鎖 iOS 語音
     setSession(s);
     setView({ name: "timer" });
   };
@@ -143,6 +147,23 @@ export default function App() {
             setView(p ? { name: "edit", draft: p, isNew: false } : { name: "onboard", firstRun: false });
           }}
           onResume={() => setView(session?.finishedAt ? { name: "summary" } : { name: "timer" })}
+          onPlan={() => setView({ name: "plan" })}
+        />
+      )}
+      {view.name === "plan" && (
+        <PlanView
+          presets={list}
+          plan={settings.plan}
+          defaultLeave={settings.leaveTime}
+          onSave={(plan) => {
+            setSettings({ ...settings, plan });
+            setView({ name: "home" });
+          }}
+          onClear={() => {
+            setSettings({ ...settings, plan: null });
+            setView({ name: "home" });
+          }}
+          onBack={() => setView({ name: "home" })}
         />
       )}
       {view.name === "edit" && (
@@ -216,7 +237,7 @@ export default function App() {
                       {p.steps.reduce((a, s) => a + s.minutes, 0)} 分鐘
                     </span>
                   </div>
-                  <ol className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
+                  <ol className="divide-y divide-line border-t border-b border-ink">
                     {p.steps.map((s, i) => (
                       <li key={s.id} className="flex justify-between gap-3 px-4 py-2.5">
                         <span className="text-ink">
@@ -230,18 +251,18 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <p className="mb-5 leading-relaxed text-sub">匯入後只會存喺你部手機，可以自由修改。</p>
+            <p className="mb-5 leading-relaxed text-sub">匯入後只會儲存於你的裝置，可自由修改。</p>
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   setIncoming(null);
                   clearQuery();
                 }}
-                className="h-14 flex-1 rounded-2xl border border-line bg-card text-lg font-semibold text-ink"
+                className="h-14 flex-1 border-[1.5px] border-ink text-lg font-bold text-ink"
               >
-                唔使
+                不用
               </button>
-              <button onClick={acceptImport} className="h-14 flex-[1.4] rounded-2xl bg-brand text-lg font-bold text-white">
+              <button onClick={acceptImport} className="h-14 flex-[1.4] bg-ink text-lg font-bold text-white">
                 {incoming.length > 1 ? `匯入 ${incoming.length} 個` : "匯入"}
               </button>
             </div>
@@ -250,15 +271,15 @@ export default function App() {
       </Modal>
 
       <Modal open={badLink} title="連結無效" onClose={() => setBadLink(false)}>
-        <p className="mb-5 text-sub">呢條分享連結已損壞或者唔完整，請叫朋友重新複製一次。</p>
+        <p className="mb-5 text-sub">此分享連結已損壞或不完整，請對方重新複製一次。</p>
         <button
           onClick={() => {
             setBadLink(false);
             clearQuery();
           }}
-          className="h-12 w-full rounded-2xl border border-line bg-card font-semibold"
+          className="h-12 w-full border-[1.5px] border-ink font-bold"
         >
-          知道
+          明白
         </button>
       </Modal>
     </>

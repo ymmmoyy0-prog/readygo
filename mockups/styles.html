@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReadyGo 風格方案</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang HK", "Noto Sans HK", "Noto Sans CJK TC", sans-serif; background: #d9d6d0; color: #1b1e21; }
+  .sheet { display: flex; gap: 40px; padding: 40px; align-items: flex-start; }
+  .label { width: 260px; flex-shrink: 0; padding-top: 8px; }
+  .label h1 { font-size: 34px; font-weight: 800; line-height: 1.2; margin-bottom: 14px; }
+  .label .tag { display: inline-block; font-size: 15px; font-weight: 700; padding: 4px 10px; background: #1b1e21; color: #fff; margin-bottom: 14px; }
+  .label p { font-size: 17px; line-height: 1.7; color: #3b4148; margin-bottom: 10px; }
+  .phone { width: 390px; height: 800px; overflow: hidden; position: relative; flex-shrink: 0; box-shadow: 0 20px 50px rgb(0 0 0 / .18); }
+  .tnum { font-variant-numeric: tabular-nums; }
+  svg { display: block; }
+  .phone.tm { display: flex; flex-direction: column; }
+  .phone.tm .done { position: relative !important; margin-top: auto; flex-shrink: 0; }
+  .C .tt .ticks { width: 100%; }
+
+  /* ================= A：鐵路路線圖 ================= */
+  .A { background: #f5f3ee; color: #1b1e21; }
+  .A .bar { height: 8px; background: #2e6b5c; }
+  .A .top { padding: 18px 20px 14px; border-bottom: 1px solid #d8d3c9; display: flex; justify-content: space-between; align-items: flex-end; }
+  .A .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .12em; color: #2e6b5c; }
+  .A h2 { font-size: 28px; font-weight: 800; }
+  .A .leave { display: flex; border-bottom: 1px solid #d8d3c9; }
+  .A .leave div { padding: 14px 20px; }
+  .A .leave .k { font-size: 14px; color: #5b626b; }
+  .A .leave .v { font-size: 34px; font-weight: 800; line-height: 1.1; }
+  .A .leave .clock { margin-left: auto; padding: 14px 20px; display: flex; align-items: center; }
+  .A .mode { border-bottom: 1px solid #d8d3c9; padding: 16px 20px; position: relative; }
+  .A .mode::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--c); }
+  .A .mode .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .A .mode h3 { font-size: 21px; font-weight: 800; }
+  .A .mode .min { font-size: 20px; font-weight: 800; color: var(--c); }
+  .A .route { margin: 12px 0 10px; }
+  .A .meta { display: flex; justify-content: space-between; align-items: center; font-size: 15px; color: #5b626b; }
+  .A .go { background: var(--c); color: #fff; font-weight: 800; font-size: 16px; padding: 10px 18px; }
+  .A .warn { color: #9a5a0c; font-weight: 700; }
+  /* timer */
+  .A .t-top { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid #d8d3c9; font-size: 15px; color: #5b626b; }
+  .A .t-top b { color: #1b1e21; }
+  .A .station { text-align: center; padding: 14px 0 0; }
+  .A .station .sign { display: inline-flex; align-items: stretch; border: 2px solid #1b1e21; }
+  .A .station .sign span { padding: 4px 12px; font-size: 15px; font-weight: 700; }
+  .A .station .sign .no { background: #2e6b5c; color: #fff; }
+  .A .station h3 { font-size: 36px; font-weight: 800; margin-top: 8px; }
+  .A .big { text-align: center; font-size: 96px; font-weight: 800; line-height: 1; letter-spacing: -.03em; margin-top: 4px; }
+  .A .sub { text-align: center; font-size: 15px; color: #5b626b; margin-top: 4px; }
+  .A .stats { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #d8d3c9; border-bottom: 1px solid #d8d3c9; margin-top: 16px; }
+  .A .stats > div { padding: 10px 16px; }
+  .A .stats > div + div { border-left: 1px solid #d8d3c9; background: #e3efe9; }
+  .A .stats .k { font-size: 13px; color: #5b626b; }
+  .A .stats .v { font-size: 28px; font-weight: 800; }
+  .A .stats .ok { color: #23704a; }
+  .A .line { padding: 14px 16px 4px; }
+  .A .ctrl { display: grid; grid-template-columns: 1fr 1fr 1fr; border-top: 1px solid #d8d3c9; }
+  .A .ctrl > div { padding: 14px 0; text-align: center; font-weight: 700; font-size: 16px; }
+  .A .ctrl > div + div { border-left: 1px solid #d8d3c9; }
+  .A .ctrl .panic { background: #d9573a; color: #fff; }
+  .A .done { position: absolute; left: 0; right: 0; bottom: 0; height: 36%; background: #2e6b5c; color: #fff; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; }
+  .A .done .d1 { font-size: 44px; font-weight: 800; }
+  .A .done .d2 { font-size: 19px; margin-top: 6px; opacity: .9; display: flex; align-items: center; gap: 8px; }
+  .A .done .arrow { position: absolute; right: 24px; top: 50%; transform: translateY(-50%); }
+
+  /* ================= B：月台顯示屏 ================= */
+  .B { background: #eceae5; color: #16181b; }
+  .B .hdr { background: #16181b; color: #f4f1ea; padding: 18px 20px; display: flex; align-items: center; gap: 12px; }
+  .B .hdr h2 { font-size: 24px; font-weight: 800; }
+  .B .hdr .en { font-size: 13px; letter-spacing: .2em; color: #f2b84b; }
+  .B .board { background: #16181b; margin: 16px; padding: 14px; color: #f2b84b; }
+  .B .board .k { font-size: 13px; color: #a7a39a; letter-spacing: .08em; }
+  .B .flap { display: inline-flex; gap: 4px; }
+  .B .flap span { position: relative; display: inline-block; background: #2a2d31; color: #f2b84b; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+  .B .flap span::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: #16181b; }
+  .B .flap.sm span { width: 30px; font-size: 32px; line-height: 46px; }
+  .B .flap.sm span.c { width: 14px; background: none; }
+  .B .flap.sm span.c::after { display: none; }
+  .B table { width: calc(100% - 32px); margin: 0 16px; border-collapse: collapse; }
+  .B th { text-align: left; font-size: 13px; color: #6b6f75; font-weight: 700; padding: 8px 6px; border-bottom: 2px solid #16181b; }
+  .B td { padding: 14px 6px; border-bottom: 1px solid #cfcbc3; font-size: 17px; vertical-align: middle; }
+  .B td.time { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .B td.name { font-weight: 800; }
+  .B td .s { display: block; font-size: 13px; color: #6b6f75; font-weight: 400; }
+  .B .st { font-size: 13px; font-weight: 800; padding: 3px 6px; }
+  .B .st.on { background: #2e6b5c; color: #fff; }
+  .B .st.late { background: #c4352a; color: #fff; }
+  .B .add { margin: 16px; border: 2px solid #16181b; padding: 14px; text-align: center; font-weight: 800; }
+  /* timer */
+  .B .t-board { background: #16181b; color: #f4f1ea; padding: 14px 16px 18px; }
+  .B .t-row { display: flex; justify-content: space-between; font-size: 14px; color: #a7a39a; }
+  .B .t-name { font-size: 34px; font-weight: 800; margin-top: 6px; }
+  .B .t-name small { font-size: 15px; color: #f2b84b; font-weight: 700; margin-left: 10px; }
+  .B .flap.lg { margin-top: 12px; }
+  .B .flap.lg span { width: 70px; font-size: 80px; line-height: 104px; }
+  .B .flap.lg span.c { width: 26px; background: none; }
+  .B .flap.lg span.c::after { display: none; }
+  .B .t-stats { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 2px solid #16181b; }
+  .B .t-stats > div { padding: 10px 16px; }
+  .B .t-stats > div + div { border-left: 1px solid #cfcbc3; }
+  .B .t-stats .k { font-size: 13px; color: #6b6f75; }
+  .B .t-stats .v { font-size: 26px; font-weight: 800; }
+  .B .next { padding: 10px 16px; font-size: 15px; color: #45494f; border-bottom: 1px solid #cfcbc3; }
+  .B .next b { color: #16181b; }
+  .B .ctrl { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 10px 16px; }
+  .B .ctrl div { border: 2px solid #16181b; padding: 11px 0; text-align: center; font-weight: 800; font-size: 16px; }
+  .B .ctrl .panic { background: #c4352a; border-color: #c4352a; color: #fff; }
+  .B .done { position: absolute; left: 0; right: 0; bottom: 0; height: 36%; background: #f2b84b; color: #16181b; display: flex; flex-direction: column; justify-content: center; align-items: center; border-top: 6px solid #16181b; }
+  .B .done .d1 { font-size: 44px; font-weight: 800; }
+  .B .done .d2 { font-size: 19px; margin-top: 6px; font-weight: 700; }
+
+  /* ================= C：站鐘與時刻表 ================= */
+  .C { background: #ffffff; color: #111; }
+  .C .top { display: flex; align-items: center; gap: 14px; padding: 20px; border-bottom: 3px solid #111; }
+  .C h2 { font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+  .C .top .sub { font-size: 13px; color: #d52b1e; font-weight: 800; letter-spacing: .14em; }
+  .C .hero { display: flex; align-items: center; gap: 18px; padding: 20px; border-bottom: 1px solid #111; }
+  .C .hero .k { font-size: 14px; color: #555; }
+  .C .hero .v { font-size: 52px; font-weight: 300; line-height: 1; letter-spacing: -.03em; }
+  .C .hero .v b { font-weight: 800; }
+  .C .tt { padding: 0 20px; }
+  .C .tt .item { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; padding: 16px 0; border-bottom: 1px solid #ddd; align-items: start; }
+  .C .tt .t { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .C .tt .t small { display: block; font-size: 12px; font-weight: 400; color: #777; }
+  .C .tt h3 { font-size: 19px; font-weight: 800; }
+  .C .tt .steps { font-size: 14px; color: #555; margin-top: 3px; line-height: 1.5; }
+  .C .tt .dur { font-size: 15px; font-weight: 800; border: 1.5px solid #111; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+  .C .tt .late { color: #d52b1e; font-size: 13px; font-weight: 800; margin-top: 4px; }
+  .C .tt .ticks { margin-top: 10px; }
+  /* timer */
+  .C .t-top { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 3px solid #111; font-size: 15px; }
+  .C .t-top b { font-size: 15px; }
+  .C .t-main { display: flex; align-items: center; gap: 16px; padding: 18px 18px 8px; }
+  .C .t-main .k { font-size: 14px; color: #555; }
+  .C .t-main h3 { font-size: 32px; font-weight: 800; line-height: 1.15; }
+  .C .t-big { padding: 0 18px; font-size: 104px; font-weight: 200; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .C .t-big b { font-weight: 800; }
+  .C .t-sub { padding: 4px 18px 0; font-size: 15px; color: #555; }
+  .C .t-stats { display: grid; grid-template-columns: 1fr 1fr; margin: 14px 18px 0; border-top: 1px solid #111; border-bottom: 1px solid #111; }
+  .C .t-stats > div { padding: 8px 0; }
+  .C .t-stats > div + div { border-left: 1px solid #111; padding-left: 14px; }
+  .C .t-stats .k { font-size: 13px; color: #555; }
+  .C .t-stats .v { font-size: 26px; font-weight: 800; }
+  .C .t-stats .ok { color: #1f7a45; }
+  .C .ruler { padding: 12px 18px 0; }
+  .C .ctrl { display: flex; gap: 0; margin: 10px 18px 0; border: 1.5px solid #111; }
+  .C .ctrl > div { flex: 1; text-align: center; padding: 11px 0; font-weight: 800; font-size: 16px; }
+  .C .ctrl > div + div { border-left: 1.5px solid #111; }
+  .C .ctrl .panic { background: #d52b1e; color: #fff; }
+  .C .done { position: absolute; left: 0; right: 0; bottom: 0; height: 36%; background: #111; color: #fff; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; }
+  .C .done .d1 { font-size: 44px; font-weight: 800; }
+  .C .done .d2 { font-size: 19px; margin-top: 6px; color: #ccc; }
+  .C .done .bar { position: absolute; left: 0; top: 0; height: 6px; width: 100%; background: #d52b1e; }
+</style>
+</head>
+<body>
+
+<!-- ===================== 方案 A ===================== -->
+<section class="sheet" id="A">
+  <div class="label">
+    <span class="tag">方案 A</span>
+    <h1>鐵路路線圖</h1>
+    <p>每個步驟是路線上的一個車站，進度以列車沿線前進表示，終點站為「出門」。</p>
+    <p>米白底色，左側色條區分模式，直角分隔線。氣氛較溫和，資訊最易讀。</p>
+  </div>
+
+  <div class="phone A">
+    <div class="bar"></div>
+    <div class="top">
+      <div><div class="eyebrow">READYGO</div><h2>出門精算師</h2></div>
+      <svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="#1b1e21" stroke-width="3"/><path d="M20 9v11l7 5" fill="none" stroke="#2e6b5c" stroke-width="3" stroke-linecap="square"/></svg>
+    </div>
+    <div class="leave">
+      <div><div class="k">今日出門時間</div><div class="v tnum">08:15</div></div>
+      <div><div class="k">最遲開始準備</div><div class="v tnum" style="color:#9a5a0c">07:45</div></div>
+    </div>
+
+    <div class="mode" style="--c:#2e6b5c">
+      <div class="row"><h3>上班日常</h3><span class="min tnum">30 分鐘</span></div>
+      <svg class="route" width="350" height="34" viewBox="0 0 350 34">
+        <line x1="8" y1="12" x2="330" y2="12" stroke="#2e6b5c" stroke-width="6"/>
+        <g fill="#fff" stroke="#2e6b5c" stroke-width="3">
+          <circle cx="8" cy="12" r="6"/><circle cx="62" cy="12" r="6"/><circle cx="116" cy="12" r="6"/><circle cx="178" cy="12" r="6"/><circle cx="260" cy="12" r="6"/><circle cx="300" cy="12" r="6"/>
+        </g>
+        <rect x="324" y="4" width="16" height="16" fill="#1b1e21"/>
+        <g font-size="10" fill="#5b626b"><text x="0" y="32">梳洗</text><text x="50" y="32">護膚</text><text x="104" y="32">頭髮</text><text x="166" y="32">換衫</text><text x="248" y="32">執袋</text><text x="318" y="32">出門</text></g>
+      </svg>
+      <div class="meta"><span>6 站・最遲 <b class="warn">07:45</b> 開始</span><span class="go">開始</span></div>
+    </div>
+
+    <div class="mode" style="--c:#3c6fa8">
+      <div class="row"><h3>快速出門</h3><span class="min tnum">20 分鐘</span></div>
+      <svg class="route" width="350" height="34" viewBox="0 0 350 34">
+        <line x1="8" y1="12" x2="330" y2="12" stroke="#3c6fa8" stroke-width="6"/>
+        <g fill="#fff" stroke="#3c6fa8" stroke-width="3"><circle cx="8" cy="12" r="6"/><circle cx="88" cy="12" r="6"/><circle cx="152" cy="12" r="6"/><circle cx="266" cy="12" r="6"/></g>
+        <rect x="324" y="4" width="16" height="16" fill="#1b1e21"/>
+        <g font-size="10" fill="#5b626b"><text x="0" y="32">梳洗</text><text x="76" y="32">儀容</text><text x="140" y="32">換衫</text><text x="254" y="32">執袋</text><text x="318" y="32">出門</text></g>
+      </svg>
+      <div class="meta"><span>4 站・最遲 07:55 開始</span><span class="go">開始</span></div>
+    </div>
+
+    <div class="mode" style="--c:#8a5a9e">
+      <div class="row"><h3>從容出門</h3><span class="min tnum">60 分鐘</span></div>
+      <svg class="route" width="350" height="34" viewBox="0 0 350 34">
+        <line x1="8" y1="12" x2="330" y2="12" stroke="#8a5a9e" stroke-width="6"/>
+        <g fill="#fff" stroke="#8a5a9e" stroke-width="3"><circle cx="8" cy="12" r="6"/><circle cx="88" cy="12" r="6"/><circle cx="116" cy="12" r="6"/><circle cx="196" cy="12" r="6"/><circle cx="250" cy="12" r="6"/><circle cx="292" cy="12" r="6"/></g>
+        <rect x="324" y="4" width="16" height="16" fill="#1b1e21"/>
+      </svg>
+      <div class="meta"><span class="warn" style="color:#c4352a">已遲 26 分鐘開始</span><span class="go">開始</span></div>
+    </div>
+  </div>
+
+  <div class="phone A tm">
+    <div class="bar"></div>
+    <div class="t-top"><span>✕ 結束</span><b>上班日常</b><span>☀ 常亮　🔊</span></div>
+    <div class="station">
+      <div class="sign"><span class="no">第 1 站</span><span>共 6 站</span></div>
+      <h3>梳洗</h3>
+    </div>
+    <div class="big tnum">04:59</div>
+    <div class="sub">此步驟尚餘</div>
+    <div class="stats">
+      <div><div class="k">總剩餘準備</div><div class="v tnum">29:59</div></div>
+      <div><div class="k">08:15 出門・緩衝</div><div class="v ok tnum">+4 分鐘</div></div>
+    </div>
+    <svg class="line" width="390" height="56" viewBox="0 0 390 56">
+      <line x1="16" y1="24" x2="356" y2="24" stroke="#c9d9d2" stroke-width="6"/>
+      <line x1="16" y1="24" x2="44" y2="24" stroke="#2e6b5c" stroke-width="6"/>
+      <g fill="#fff" stroke="#9db9ae" stroke-width="3"><circle cx="76" cy="24" r="6"/><circle cx="136" cy="24" r="6"/><circle cx="206" cy="24" r="6"/><circle cx="282" cy="24" r="6"/><circle cx="326" cy="24" r="6"/></g>
+      <circle cx="16" cy="24" r="8" fill="#2e6b5c"/>
+      <!-- 列車 -->
+      <g transform="translate(30 10)"><rect width="30" height="22" fill="#2e6b5c"/><rect x="4" y="4" width="9" height="7" fill="#fff"/><rect x="17" y="4" width="9" height="7" fill="#fff"/><rect x="3" y="15" width="4" height="3" fill="#f2b84b"/><rect x="23" y="15" width="4" height="3" fill="#f2b84b"/></g>
+      <rect x="350" y="16" width="16" height="16" fill="#1b1e21"/>
+      <g font-size="11" fill="#5b626b"><text x="4" y="50">梳洗</text><text x="64" y="50">護膚</text><text x="124" y="50">頭髮</text><text x="194" y="50">換衫</text><text x="270" y="50">執袋</text><text x="342" y="50">出門</text></g>
+    </svg>
+    <div class="ctrl"><div>上一步</div><div>暫停</div><div class="panic">時間不足</div></div>
+    <div class="done">
+      <div class="d1">完成此步驟</div>
+      <div class="d2">下一站：護膚整理</div>
+      <svg class="arrow" width="56" height="56" viewBox="0 0 56 56"><path d="M12 28h30M30 14l14 14-14 14" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="square"/></svg>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 方案 B ===================== -->
+<section class="sheet" id="B">
+  <div class="label">
+    <span class="tag">方案 B</span>
+    <h1>月台顯示屏</h1>
+    <p>時間以翻牌式數字顯示，模式清單排成「開出時間表」，每個模式的開始時間就是班次。</p>
+    <p>深色顯示屏配琥珀色字，對比最強，遠距離最易看清倒數。整體較硬朗。</p>
+  </div>
+
+  <div class="phone B">
+    <div class="hdr">
+      <svg width="34" height="34" viewBox="0 0 34 34"><rect x="5" y="3" width="24" height="22" fill="#f2b84b"/><rect x="9" y="7" width="7" height="7" fill="#16181b"/><rect x="18" y="7" width="7" height="7" fill="#16181b"/><rect x="8" y="18" width="4" height="3" fill="#16181b"/><rect x="22" y="18" width="4" height="3" fill="#16181b"/><path d="M8 25l-4 7M26 25l4 7" stroke="#f2b84b" stroke-width="3"/></svg>
+      <div><div class="en">READYGO</div><h2>出門精算師</h2></div>
+    </div>
+    <div class="board">
+      <div class="k">今日出門時間</div>
+      <div class="flap sm" style="margin-top:6px"><span>0</span><span>8</span><span class="c">:</span><span>1</span><span>5</span></div>
+    </div>
+    <table>
+      <tr><th>開始</th><th>模式</th><th>時長</th><th>狀態</th></tr>
+      <tr><td class="time">07:45</td><td class="name">上班日常<span class="s">梳洗・護膚・頭髮・換衫…</span></td><td class="tnum">30′</td><td><span class="st on">準時</span></td></tr>
+      <tr><td class="time">07:55</td><td class="name">快速出門<span class="s">梳洗・儀容・換衫・執袋</span></td><td class="tnum">20′</td><td><span class="st on">準時</span></td></tr>
+      <tr><td class="time" style="color:#c4352a">07:15</td><td class="name">從容出門<span class="s">沐浴・梳洗・早餐…</span></td><td class="tnum">60′</td><td><span class="st late">已遲</span></td></tr>
+    </table>
+    <div class="add">＋ 新增出門模式</div>
+  </div>
+
+  <div class="phone B tm">
+    <div class="t-board">
+      <div class="t-row"><span>✕ 結束</span><span>上班日常</span><span>☀ 常亮　🔊</span></div>
+      <div class="t-name">梳洗<small>第 1 站／共 6 站</small></div>
+      <div class="flap lg"><span>0</span><span>4</span><span class="c">:</span><span>5</span><span>9</span></div>
+      <div class="t-row" style="margin-top:8px"><span>此步驟尚餘</span><span>預計 07:45 完成</span></div>
+    </div>
+    <div class="t-stats">
+      <div><div class="k">總剩餘準備</div><div class="v tnum">29:59</div></div>
+      <div><div class="k">08:15 出門・緩衝</div><div class="v tnum" style="color:#23704a">+4 分鐘</div></div>
+    </div>
+    <div class="next">下一站 <b>護膚整理 5′</b>　之後：整理頭髮・換衫・執袋</div>
+    <div class="ctrl"><div>上一步</div><div>暫停</div><div class="panic">時間不足</div></div>
+    <div class="done">
+      <div class="d1">完成此步驟</div>
+      <div class="d2">下一站：護膚整理 →</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 方案 C ===================== -->
+<section class="sheet" id="C">
+  <div class="label">
+    <span class="tag">方案 C</span>
+    <h1>站鐘與時刻表</h1>
+    <p>白底黑字加一點紅，以月台時鐘為主視覺。模式清單像車站時刻表，步驟進度以刻度尺表示。</p>
+    <p>最簡潔、最有平面設計感，色彩最少，數字用粗細對比營造層次。</p>
+  </div>
+
+  <div class="phone C">
+    <div class="top">
+      <svg width="36" height="36" viewBox="0 0 36 36"><rect x="1.5" y="1.5" width="33" height="33" fill="none" stroke="#111" stroke-width="3"/><path d="M18 7v11h8" fill="none" stroke="#111" stroke-width="3"/><circle cx="26" cy="18" r="3" fill="#d52b1e"/></svg>
+      <div><div class="sub">READYGO</div><h2>出門精算師</h2></div>
+    </div>
+    <div class="hero">
+      <svg width="92" height="92" viewBox="0 0 92 92">
+        <circle cx="46" cy="46" r="43" fill="#fff" stroke="#111" stroke-width="3"/>
+        <g stroke="#111" stroke-width="4"><line x1="46" y1="7" x2="46" y2="17"/><line x1="85" y1="46" x2="75" y2="46"/><line x1="46" y1="85" x2="46" y2="75"/><line x1="7" y1="46" x2="17" y2="46"/></g>
+        <g stroke="#111" stroke-width="2"><line x1="65.5" y1="12.2" x2="62.5" y2="17.4"/><line x1="79.8" y1="26.5" x2="74.6" y2="29.5"/><line x1="79.8" y1="65.5" x2="74.6" y2="62.5"/><line x1="65.5" y1="79.8" x2="62.5" y2="74.6"/><line x1="26.5" y1="79.8" x2="29.5" y2="74.6"/><line x1="12.2" y1="65.5" x2="17.4" y2="62.5"/><line x1="12.2" y1="26.5" x2="17.4" y2="29.5"/><line x1="26.5" y1="12.2" x2="29.5" y2="17.4"/></g>
+        <line x1="46" y1="46" x2="52" y2="24" stroke="#111" stroke-width="5"/>
+        <line x1="46" y1="46" x2="46" y2="16" stroke="#111" stroke-width="4" transform="rotate(90 46 46)"/>
+        <line x1="46" y1="54" x2="46" y2="20" stroke="#d52b1e" stroke-width="2" transform="rotate(200 46 46)"/>
+        <circle cx="46" cy="46" r="3" fill="#d52b1e"/>
+      </svg>
+      <div><div class="k">今日出門時間</div><div class="v tnum"><b>08</b>:15</div></div>
+    </div>
+    <div class="tt">
+      <div class="item">
+        <div class="t">07:45<small>開始</small></div>
+        <div><h3>上班日常</h3><div class="steps">梳洗・護膚整理・整理頭髮・換衫・執袋・關窗</div>
+          <svg class="ticks" width="230" height="10" viewBox="0 0 230 10"><rect width="230" height="2" y="4" fill="#111"/><g fill="#111"><rect x="0" width="2" height="10"/><rect x="38" width="2" height="10"/><rect x="76" width="2" height="10"/><rect x="114" width="2" height="10"/><rect x="175" width="2" height="10"/><rect x="206" width="2" height="10"/><rect x="228" width="2" height="10"/></g></svg>
+        </div>
+        <div class="dur">30′</div>
+      </div>
+      <div class="item">
+        <div class="t">07:55<small>開始</small></div>
+        <div><h3>快速出門</h3><div class="steps">梳洗・整理儀容・換衫・執袋</div></div>
+        <div class="dur">20′</div>
+      </div>
+      <div class="item">
+        <div class="t" style="color:#d52b1e">07:15<small>開始</small></div>
+        <div><h3>從容出門</h3><div class="steps">沐浴・梳洗・早餐・整理儀容・換衫・執袋</div><div class="late">已遲 26 分鐘</div></div>
+        <div class="dur">60′</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phone C tm">
+    <div class="t-top"><span>✕ 結束</span><b>上班日常</b><span>☀ 常亮　🔊</span></div>
+    <div class="t-main">
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="29" fill="none" stroke="#e5e5e5" stroke-width="6"/>
+        <circle cx="32" cy="32" r="29" fill="none" stroke="#111" stroke-width="6" stroke-dasharray="182.2" stroke-dashoffset="0.6" transform="rotate(-90 32 32)"/>
+        <line x1="32" y1="32" x2="32" y2="10" stroke="#d52b1e" stroke-width="2.5" transform="rotate(-1 32 32)"/>
+        <circle cx="32" cy="32" r="3" fill="#d52b1e"/>
+      </svg>
+      <div><div class="k">第 1 站／共 6 站</div><h3>梳洗</h3></div>
+    </div>
+    <div class="t-big"><b>04</b>:59</div>
+    <div class="t-sub">此步驟尚餘</div>
+    <div class="t-stats">
+      <div><div class="k">總剩餘準備</div><div class="v tnum">29:59</div></div>
+      <div><div class="k">08:15 出門・緩衝</div><div class="v ok tnum">+4 分鐘</div></div>
+    </div>
+    <svg class="ruler" width="390" height="44" viewBox="0 0 390 44">
+      <rect x="18" y="14" width="336" height="2" fill="#111"/>
+      <rect x="18" y="12" width="56" height="6" fill="#d52b1e"/>
+      <g fill="#111"><rect x="18" y="6" width="2" height="18"/><rect x="74" y="6" width="2" height="18"/><rect x="130" y="6" width="2" height="18"/><rect x="186" y="6" width="2" height="18"/><rect x="276" y="6" width="2" height="18"/><rect x="321" y="6" width="2" height="18"/><rect x="352" y="6" width="2" height="18"/></g>
+      <g font-size="11" fill="#555"><text x="18" y="40">梳洗</text><text x="74" y="40">護膚</text><text x="130" y="40">頭髮</text><text x="186" y="40">換衫</text><text x="276" y="40">執袋</text><text x="330" y="40">出門</text></g>
+    </svg>
+    <div class="ctrl"><div>上一步</div><div>暫停</div><div class="panic">時間不足</div></div>
+    <div class="done">
+      <div class="bar"></div>
+      <div class="d1">完成此步驟</div>
+      <div class="d2">下一站　護膚整理　5 分鐘 →</div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
