@@ -154,7 +154,10 @@ export default function App() {
       // 「只限今次」分鐘：按比例縮放步驟，只影響這次計時
       if (plan.minutes !== null) preset = { ...base, steps: scaleSteps(base.steps, plan.minutes) };
     }
-    const t = computeTarget(st, live, Date.now());
+    // 行程專用交通：以該路線估算（實時班次只追蹤平日路線）
+    const t = plan?.transit
+      ? computeTarget({ ...st, transit: { ...st.transit, primary: plan.transit } }, null, Date.now())
+      : computeTarget(st, live, Date.now());
     const s = createSession(preset, t.leaveAt);
     if (!settings.muted) speak(`開始${preset.name}，第一步，${preset.steps[0].name}`); // 於用戶操作內觸發，解鎖 iOS 語音
     setSession(s);

@@ -212,7 +212,7 @@ function Stepper({
   );
 }
 
-function RouteEditor({
+export function RouteEditor({
   initial,
   onSave,
   onCancel,

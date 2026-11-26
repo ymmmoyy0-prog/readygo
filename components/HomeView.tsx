@@ -501,7 +501,7 @@ export default function HomeView({
       <nav className="mt-auto border-t border-ink">
         <button onClick={onPlan} className="flex w-full items-center justify-between border-b border-line px-5 py-4 font-bold text-ink">
           <span>
-            行程預約
+            超前規劃
             {upcoming > 0 && <span className="tnum ml-2 bg-ink px-1.5 py-0.5 text-[12px] text-white">{upcoming}</span>}
           </span>
           <span>→</span>

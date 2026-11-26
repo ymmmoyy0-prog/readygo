@@ -42,6 +42,8 @@ export interface Plan {
   wakeBufferMin: number;
   /** 日期 "YYYY-MM-DD"（本地時間） */
   date: string;
+  /** 此行程專用交通；null 代表沿用平日首選路線 */
+  transit?: import("./transit").RouteCfg | null;
 }
 
 export interface Settings {
