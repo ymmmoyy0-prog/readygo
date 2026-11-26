@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import SwRegister from "@/components/SwRegister";
 import UpdateBanner from "@/components/UpdateBanner";
+import PressFeedback from "@/components/PressFeedback";
 
 export const metadata: Metadata = {
   title: "出門精算師 ReadyGo",
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <SwRegister />
         <UpdateBanner />
+        <PressFeedback />
       </body>
     </html>
   );

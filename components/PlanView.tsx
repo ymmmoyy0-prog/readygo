@@ -8,6 +8,7 @@ import TimeField from "./TimeField";
 import TransitBadge from "./TransitBadge";
 import AddModePanel from "./AddModePanel";
 import Collapse from "./Collapse";
+import Bump from "./Bump";
 import { PlusIcon } from "./Icons";
 
 const WEEK = ["日", "一", "二", "三", "四", "五", "六"];
@@ -251,7 +252,7 @@ function PlanEditor({
               <button onClick={() => set({ minutes: Math.max(5, total - 5) })} className="h-10 w-10 text-xl text-ink" aria-label="減少五分鐘">
                 −
               </button>
-              <span className="tnum w-16 text-center font-extrabold text-ink">{total} 分</span>
+              <span className="tnum w-16 text-center font-extrabold text-ink"><Bump value={total} /> 分</span>
               <button onClick={() => set({ minutes: Math.min(240, total + 5) })} className="h-10 w-10 text-xl text-ink" aria-label="增加五分鐘">
                 ＋
               </button>
@@ -286,7 +287,7 @@ function PlanEditor({
       <div className="flex items-center justify-between border-b border-ink px-5 py-3">
         <span>
           <span className={label}>起床緩衝</span>
-          <span className="tnum text-lg font-extrabold text-ink">{p.wakeBufferMin} 分鐘</span>
+          <span className="tnum text-lg font-extrabold text-ink"><Bump value={p.wakeBufferMin} /> 分鐘</span>
         </span>
         <span className="flex border-[1.5px] border-ink">
           <button onClick={() => set({ wakeBufferMin: Math.max(0, p.wakeBufferMin - 5) })} className="h-10 w-11 text-xl text-ink" aria-label="起床緩衝減少">

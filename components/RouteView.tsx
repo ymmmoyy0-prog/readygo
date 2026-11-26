@@ -17,6 +17,7 @@ import type { LiveTransit } from "@/lib/target";
 import { fmtClock } from "@/lib/time";
 import { CoChip, routeTitle } from "./TransitBadge";
 import MtrPicker from "./MtrPicker";
+import Bump from "./Bump";
 
 type Slot = "primary" | "backup";
 
@@ -202,7 +203,7 @@ function Stepper({
         <button onClick={() => onChange(Math.max(0, value - step))} className="h-10 w-10 text-xl text-ink" aria-label={`${label}減少`}>
           −
         </button>
-        <span className="tnum w-14 text-center font-extrabold text-ink">{value} 分</span>
+        <span className="tnum w-14 text-center font-extrabold text-ink"><Bump value={value} /> 分</span>
         <button onClick={() => onChange(Math.min(180, value + step))} className="h-10 w-10 text-xl text-ink" aria-label={`${label}增加`}>
           ＋
         </button>

@@ -424,8 +424,25 @@ export default function HomeView({
               className="ml-auto"
             >
               <svg width="52" height="30" viewBox="0 0 52 30" aria-hidden>
-                <rect x="1" y="1" width="50" height="28" rx="14" fill={settings.muted ? "#d9d9d9" : "#1f7a45"} />
-                <circle cx={settings.muted ? 15 : 37} cy="15" r="11" fill="#fff" />
+                <rect
+                  x="1"
+                  y="1"
+                  width="50"
+                  height="28"
+                  rx="14"
+                  fill={settings.muted ? "#d9d9d9" : "#1f7a45"}
+                  style={{ transition: "fill 0.25s ease" }}
+                />
+                <circle
+                  cx="15"
+                  cy="15"
+                  r="11"
+                  fill="#fff"
+                  style={{
+                    transform: settings.muted ? "translateX(0)" : "translateX(22px)",
+                    transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  }}
+                />
               </svg>
             </button>
           </div>

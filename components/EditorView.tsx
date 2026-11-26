@@ -7,6 +7,7 @@ import { applySuggestions, getSuggestions } from "@/lib/stats";
 import { fmtDuration } from "@/lib/time";
 import ShareModal from "./ShareModal";
 import Ruler from "./Ruler";
+import Bump from "./Bump";
 
 export default function EditorView({
   initial,
@@ -102,7 +103,7 @@ export default function EditorView({
         <div className="mb-3 flex items-baseline justify-between">
           <span className="font-semibold text-sub">總時長</span>
           <span className="tnum text-3xl font-extrabold text-ink">
-            {total}
+            <Bump value={total} />
             <span className="ml-1 text-base font-semibold text-sub">分鐘</span>
           </span>
         </div>
