@@ -7,6 +7,7 @@ import { uid } from "@/lib/id";
 import TimeField from "./TimeField";
 import TransitBadge from "./TransitBadge";
 import AddModePanel from "./AddModePanel";
+import Collapse from "./Collapse";
 import { PlusIcon } from "./Icons";
 
 const WEEK = ["日", "一", "二", "三", "四", "五", "六"];
@@ -228,7 +229,7 @@ function PlanEditor({
             新增
           </button>
         </div>
-        {adding && (
+        <Collapse open={adding}>
           <div className="mt-2">
             <AddModePanel
               onAdd={(np) => {
@@ -239,7 +240,7 @@ function PlanEditor({
               onBlank={onBlankPreset}
             />
           </div>
-        )}
+        </Collapse>
         {preset && (
           <div className="mt-3 flex items-center justify-between">
             <span className="text-[14px] text-ink">

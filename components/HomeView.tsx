@@ -11,6 +11,7 @@ import TimeField from "./TimeField";
 import TransitBadge from "./TransitBadge";
 import RouteView from "./RouteView";
 import AddModePanel from "./AddModePanel";
+import Collapse from "./Collapse";
 import { Logo } from "./StationClock";
 import {
   AddSquareIcon,
@@ -98,7 +99,7 @@ function Station({
           {children}
         </div>
       </div>
-      {expand && <div className="relative z-10 pb-4">{expand}</div>}
+      {expand && <div className="relative z-10">{expand}</div>}
     </section>
   );
 }
@@ -159,7 +160,11 @@ export default function HomeView({
   onDelete,
   onResume,
   onPlan,
+  historyCount,
+  onClearHistory,
 }: {
+  historyCount: number;
+  onClearHistory: () => void;
   presets: Preset[];
   settings: Settings;
   session: Session | null;
@@ -175,6 +180,7 @@ export default function HomeView({
 }) {
   const [sharing, setSharing] = useState<Preset | Preset[] | null>(null);
   const [confirmDel, setConfirmDel] = useState<Preset | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [openTransit, setOpenTransit] = useState(false);
   const [openAdd, setOpenAdd] = useState(false);
   const [a2hs, setA2hs] = useState(false);
@@ -335,9 +341,9 @@ export default function HomeView({
           title="交通"
           caption="選擇交通工具，自動計算出門時間"
           expand={
-            openTransit ? (
+            <Collapse open={openTransit}>
               <RouteView embedded settings={settings} live={live} onSettings={onSettings} onBack={() => setOpenTransit(false)} />
-            ) : undefined
+            </Collapse>
           }
         >
           {route ? (
@@ -349,7 +355,7 @@ export default function HomeView({
                     {route.from.name} → {route.to.name}
                   </span>
                 )}
-                <span className="ml-auto shrink-0 text-sub">{openTransit ? "▲" : "▼"}</span>
+                <span className={`ml-auto shrink-0 text-sub transition-transform duration-300 ${openTransit ? "rotate-180" : ""}`}>▼</span>
               </div>
               <div className="mt-2 flex items-end justify-between gap-3">
                 <span className="tnum text-[15px] text-ink">{shownDep ? `${fmtClock(shownDep.board)} 班次` : ""}</span>
@@ -457,10 +463,12 @@ export default function HomeView({
               aria-label="新增出門模式"
               aria-expanded={openAdd}
             >
-              <PlusIcon size={20} />
+              <span className={`transition-transform duration-300 ${openAdd ? "rotate-45" : ""}`}>
+                <PlusIcon size={20} />
+              </span>
               <span className="text-[15px] font-bold">建立你的出門模式</span>
             </button>
-            {openAdd && (
+            <Collapse open={openAdd}>
               <AddModePanel
                 onAdd={(p) => {
                   onAdd(p);
@@ -468,7 +476,7 @@ export default function HomeView({
                 }}
                 onBlank={() => onEdit(null)}
               />
-            )}
+            </Collapse>
           </div>
         </Station>
       </div>
@@ -482,11 +490,38 @@ export default function HomeView({
           <span>→</span>
         </button>
         {presets.length > 1 && (
-          <button onClick={() => setSharing(presets)} className="w-full px-5 py-4 text-left text-[15px] text-sub">
+          <button onClick={() => setSharing(presets)} className="w-full border-b border-line px-5 py-4 text-left text-[15px] text-sub">
             分享／備份全部模式
           </button>
         )}
+        <button
+          onClick={() => setConfirmClear(true)}
+          disabled={historyCount === 0}
+          className="flex w-full items-center gap-2 px-5 py-4 text-left text-[15px] text-danger disabled:text-faint"
+        >
+          <TrashIcon size={18} />
+          清除計時記錄
+          <span className="tnum ml-auto text-[13px] text-sub">{historyCount} 筆</span>
+        </button>
       </nav>
+
+      <Modal open={confirmClear} title="清除全部計時記錄？" onClose={() => setConfirmClear(false)}>
+        <p className="mb-5 text-[15px] text-sub">共 {historyCount} 筆，清除後無法復原，耗時建議會重新學習。出門模式及交通設定不受影響。</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => setConfirmClear(false)} className="h-14 border-[1.5px] border-ink font-bold text-ink">
+            取消
+          </button>
+          <button
+            onClick={() => {
+              onClearHistory();
+              setConfirmClear(false);
+            }}
+            className="h-14 bg-danger font-bold text-white"
+          >
+            清除
+          </button>
+        </div>
+      </Modal>
 
       <Modal open={!!confirmDel} title={`刪除「${confirmDel?.name ?? ""}」？`} onClose={() => setConfirmDel(null)}>
         <p className="mb-5 text-[15px] text-sub">此模式及其耗時紀錄將一併刪除，無法復原。</p>

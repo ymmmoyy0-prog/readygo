@@ -1,5 +1,5 @@
 /* ReadyGo Service Worker：離線優先緩存 */
-const VERSION = "readygo-v3";
+const VERSION = "readygo-v4";
 const SHELL = "/";
 const PRECACHE = [SHELL, "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
 
@@ -31,6 +31,7 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // 外部 API（巴士 ETA）一律直連
+  if (url.pathname.startsWith("/api/")) return; // 版本檢查等一律直連，不經緩存
 
   // 頁面導航：網絡優先，離線時回退到已緩存的 App Shell（忽略 ?preset= 等參數）
   if (req.mode === "navigate") {

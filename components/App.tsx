@@ -188,6 +188,8 @@ export default function App() {
             setView(p ? { name: "edit", draft: p, isNew: false } : { name: "edit", draft: blankPreset(), isNew: true });
           }}
           onAdd={addPreset}
+          historyCount={history.length}
+          onClearHistory={() => setHistory(() => [])}
           onDelete={(id) => {
             setPresets(list.filter((x) => x.id !== id));
             setHistory((h) => h.filter((r) => r.presetId !== id));
