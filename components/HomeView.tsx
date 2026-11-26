@@ -1,17 +1,38 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Preset, Session, Settings } from "@/lib/types";
 import { fmtClock, todayKey } from "@/lib/time";
 import type { LiveTransit, Target } from "@/lib/target";
 import { listDepartures } from "@/lib/target";
+import { QUICK_TEMPLATES, fromTemplate, presetForTotal, templateTotal } from "@/lib/defaults";
+import { speak } from "@/lib/speech";
 import ShareModal from "./ShareModal";
 import Modal from "./Modal";
 import TimeField from "./TimeField";
 import TransitBadge from "./TransitBadge";
+import RouteView from "./RouteView";
 import { Logo } from "./StationClock";
-import { BusIcon, CarIcon, ClockIcon, ListIcon, PlusIcon, TrainIcon } from "./Icons";
+import {
+  AddSquareIcon,
+  BusIcon,
+  CarIcon,
+  ChartIcon,
+  ClockIcon,
+  ListIcon,
+  PencilIcon,
+  PlayIcon,
+  PlusIcon,
+  RefreshIcon,
+  ShareUpIcon,
+  SkipIcon,
+  SpeakerIcon,
+  SunIcon,
+  TrainIcon,
+  TrashIcon,
+} from "./Icons";
 
 type StepState = "done" | "current" | "todo";
+type LiveProps = LiveTransit & { error: string | null; loading: boolean; updatedAt: number | null; refresh: () => Promise<void> };
 
 /** 路線圖車站節點：完成＝黑底剔號；當前＝紅色脈動；未到＝空心數字 */
 function Node({ n, state }: { n: number; state: StepState }) {
@@ -46,31 +67,86 @@ function Station({
   n,
   state,
   icon,
+  title,
+  caption,
   last,
+  expand,
   children,
 }: {
   n: number;
   state: StepState;
   icon: ReactNode;
+  title: string;
+  caption: string;
   last?: boolean;
+  expand?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section className="relative grid grid-cols-[34px_1fr] gap-x-4 pl-5 pr-5">
-      {/* 路線 */}
+    <section className="relative">
       {!last && (
         <span
           className={`absolute bottom-0 left-[calc(1.25rem+16px)] top-[34px] w-[3px] ${state === "done" ? "bg-ink" : "bg-line"}`}
           aria-hidden
         />
       )}
-      <div className="relative z-10 pt-4">
-        <Node n={n} state={state} />
-        <div className={`mt-2 flex justify-center bg-paper py-1 ${state === "todo" ? "text-faint" : "text-ink"}`}>{icon}</div>
+      <div className="grid grid-cols-[34px_1fr] gap-x-4 px-5">
+        <div className="relative z-10 pt-4">
+          <Node n={n} state={state} />
+          <div className={`mt-2 flex justify-center bg-paper py-1 ${state === "todo" ? "text-faint" : "text-ink"}`}>{icon}</div>
+        </div>
+        <div className={`min-w-0 pb-5 pt-4 ${state === "todo" ? "opacity-45" : ""}`}>
+          <h2 className="text-[17px] font-extrabold leading-tight text-ink">{title}</h2>
+          <p className="mb-3 mt-0.5 text-[13px] text-sub">{caption}</p>
+          {children}
+        </div>
       </div>
-      <div className={`min-w-0 pb-6 pt-4 ${state === "todo" ? "opacity-45" : ""}`}>{children}</div>
+      {expand && <div className="relative z-10 pb-4">{expand}</div>}
     </section>
   );
+}
+
+/** 向左滑出刪除鍵 */
+function SwipeRow({ children, onDelete }: { children: ReactNode; onDelete: () => void }) {
+  const W = 72;
+  const [x, setX] = useState(0);
+  const start = useRef<{ x: number; y: number; base: number; horiz: boolean | null } | null>(null);
+  return (
+    <div className="relative overflow-hidden border-b border-line">
+      <button onClick={onDelete} className="absolute inset-y-0 right-0 flex w-[72px] items-center justify-center bg-danger text-white" aria-label="刪除">
+        <TrashIcon />
+      </button>
+      <div
+        className="relative bg-paper transition-transform duration-150"
+        style={{ transform: `translateX(${x}px)` }}
+        onTouchStart={(e) => {
+          start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, base: x, horiz: null };
+        }}
+        onTouchMove={(e) => {
+          const s = start.current;
+          if (!s) return;
+          const dx = e.touches[0].clientX - s.x;
+          const dy = e.touches[0].clientY - s.y;
+          if (s.horiz === null && Math.abs(dx) + Math.abs(dy) > 8) s.horiz = Math.abs(dx) > Math.abs(dy);
+          if (s.horiz) setX(Math.max(-W, Math.min(0, s.base + dx)));
+        }}
+        onTouchEnd={() => {
+          setX((v) => (v < -W / 2 ? -W : 0));
+          start.current = null;
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function isIosBrowser() {
+  if (typeof navigator === "undefined") return false;
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const standalone =
+    (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  return ios && !standalone;
 }
 
 export default function HomeView({
@@ -82,28 +158,46 @@ export default function HomeView({
   onSettings,
   onStart,
   onEdit,
+  onAdd,
+  onDelete,
   onResume,
   onPlan,
-  onRoutes,
 }: {
   presets: Preset[];
   settings: Settings;
   session: Session | null;
   target: Target;
-  live: LiveTransit & { error: string | null };
+  live: LiveProps;
   onSettings: (s: Settings) => void;
   onStart: (p: Preset, fromPlan?: boolean) => void;
   onEdit: (id: string | null) => void;
+  onAdd: (p: Preset) => void;
+  onDelete: (id: string) => void;
   onResume: () => void;
   onPlan: () => void;
-  onRoutes: () => void;
 }) {
   const [sharing, setSharing] = useState<Preset | Preset[] | null>(null);
-  const [menu, setMenu] = useState<Preset | null>(null);
+  const [confirmDel, setConfirmDel] = useState<Preset | null>(null);
+  const [openTransit, setOpenTransit] = useState(false);
+  const [openAdd, setOpenAdd] = useState(false);
+  const [custom, setCustom] = useState("45");
+  const [a2hs, setA2hs] = useState(false);
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const pullStart = useRef<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    let dismissed = false;
+    try {
+      dismissed = localStorage.getItem("readygo.a2hs") === "1";
+    } catch {
+      /* ignore */
+    }
+    setA2hs(!dismissed && isIosBrowser());
   }, []);
 
   const arrive = settings.timeMode === "arrive";
@@ -125,13 +219,98 @@ export default function HomeView({
   const prepSec = (presets[0]?.steps.reduce((a, s) => a + s.minutes, 0) ?? 0) * 60;
   const deps = listDepartures(settings, live, prepSec, now);
   const shownDep = target.dep ?? deps.find((d) => d.catchable)?.dep ?? null;
+  const customMin = Math.round(Number(custom));
+
+  const doRefresh = async () => {
+    setRefreshing(true);
+    await live.refresh();
+    setRefreshing(false);
+  };
+
+  const add = (p: Preset) => {
+    onAdd(p);
+    setOpenAdd(false);
+  };
+
+  const feature = (icon: ReactNode, label: string, extra?: ReactNode, onClick?: () => void, active = true) => (
+    <span className={`flex flex-col items-center gap-0.5 ${active ? "text-ink" : "text-faint"}`}>
+      {onClick ? (
+        <button onClick={onClick} className="flex flex-col items-center gap-0.5" aria-pressed={active}>
+          {icon}
+          <span className="text-[11px] font-semibold">{label}</span>
+        </button>
+      ) : (
+        <>
+          {icon}
+          <span className="text-[11px] font-semibold">{label}</span>
+        </>
+      )}
+      {extra}
+    </span>
+  );
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-lg flex-col bg-paper">
+    <main
+      className="mx-auto flex min-h-dvh max-w-lg flex-col bg-paper"
+      onTouchStart={(e) => {
+        pullStart.current = window.scrollY <= 0 ? e.touches[0].clientY : null;
+      }}
+      onTouchMove={(e) => {
+        if (pullStart.current === null) return;
+        const dy = e.touches[0].clientY - pullStart.current;
+        setPull(dy > 0 ? Math.min(90, dy * 0.5) : 0);
+      }}
+      onTouchEnd={() => {
+        if (pull > 55 && route) doRefresh();
+        setPull(0);
+        pullStart.current = null;
+      }}
+    >
+      {/* 下拉更新 */}
+      {route && (pull > 0 || refreshing) && (
+        <div className="flex items-center justify-center gap-2 bg-brand-soft text-[13px] text-sub" style={{ height: refreshing ? 40 : pull }}>
+          <span className={refreshing ? "animate-spin" : ""} style={{ transform: refreshing ? undefined : `rotate(${pull * 4}deg)` }}>
+            <RefreshIcon size={18} />
+          </span>
+          {refreshing ? "更新中" : pull > 55 ? "放開更新班次" : "下拉更新班次"}
+          {live.updatedAt && !refreshing && <span className="tnum">・{new Date(live.updatedAt).toLocaleTimeString("zh-HK", { hour12: false })}</span>}
+        </div>
+      )}
+
       <header className="flex items-center gap-2.5 border-b-[3px] border-ink px-5 py-4">
         <Logo size={28} />
         <h1 className="text-xl font-extrabold text-ink">出門精算師</h1>
+        {route && (
+          <button onClick={doRefresh} className="ml-auto text-ink" aria-label="更新班次">
+            <span className={refreshing ? "inline-block animate-spin" : "inline-block"}>
+              <RefreshIcon size={20} />
+            </span>
+          </button>
+        )}
       </header>
+
+      {a2hs && (
+        <div className="flex items-center gap-2 border-b border-ink bg-warn-soft px-5 py-2.5 text-ink">
+          <ShareUpIcon size={22} />
+          <span aria-hidden>→</span>
+          <AddSquareIcon size={22} />
+          <span className="text-[14px] font-semibold">加到主畫面</span>
+          <button
+            onClick={() => {
+              setA2hs(false);
+              try {
+                localStorage.setItem("readygo.a2hs", "1");
+              } catch {
+                /* ignore */
+              }
+            }}
+            className="ml-auto h-8 w-8 text-lg"
+            aria-label="關閉"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {session && !session.finishedAt && (
         <button onClick={onResume} className="flex w-full items-center justify-between bg-ink px-5 py-3.5 text-left text-white">
@@ -153,7 +332,7 @@ export default function HomeView({
 
       <div className="pt-2">
         {/* ① 時間 */}
-        <Station n={1} state={state(1)} icon={<ClockIcon />}>
+        <Station n={1} state={state(1)} icon={<ClockIcon />} title="時間" caption="設定今日出門或到達的時間">
           <div className="mb-3 grid grid-cols-2 border-[1.5px] border-ink">
             {(["leave", "arrive"] as const).map((m, i) => (
               <button
@@ -177,9 +356,16 @@ export default function HomeView({
           n={2}
           state={state(2)}
           icon={route?.co === "CAR" ? <CarIcon /> : route?.co === "MTR" ? <TrainIcon /> : <BusIcon />}
+          title="交通"
+          caption="選擇交通工具，自動計算出門時間"
+          expand={
+            openTransit ? (
+              <RouteView embedded settings={settings} live={live} onSettings={onSettings} onBack={() => setOpenTransit(false)} />
+            ) : undefined
+          }
         >
           {route ? (
-            <button onClick={onRoutes} className="block w-full text-left">
+            <button onClick={() => setOpenTransit((o) => !o)} className="block w-full text-left">
               <div className="flex min-w-0 items-center gap-2 text-[15px] text-ink">
                 <TransitBadge route={route} />
                 {route.co !== "CAR" && route.co !== "MTR" && (
@@ -187,11 +373,10 @@ export default function HomeView({
                     {route.from.name} → {route.to.name}
                   </span>
                 )}
+                <span className="ml-auto shrink-0 text-sub">{openTransit ? "▲" : "▼"}</span>
               </div>
               <div className="mt-2 flex items-end justify-between gap-3">
-                <span className="tnum text-[15px] text-ink">
-                  {shownDep ? `${fmtClock(shownDep.board)} 班次` : ""}
-                </span>
+                <span className="tnum text-[15px] text-ink">{shownDep ? `${fmtClock(shownDep.board)} 班次` : ""}</span>
                 {target.leaveAt !== null && arrive && (
                   <span className="text-right">
                     <span className="block text-[12px] text-sub">{target.source === "live" ? "應出門" : "應出門（估算）"}</span>
@@ -204,11 +389,12 @@ export default function HomeView({
           ) : (
             <div>
               <button
-                onClick={onRoutes}
+                onClick={() => setOpenTransit((o) => !o)}
                 className={`flex h-16 w-full items-center justify-center gap-5 border-[1.5px] text-ink ${
                   state(2) === "current" ? "border-danger" : "border-dashed border-ink"
                 }`}
                 aria-label="設定交通"
+                aria-expanded={openTransit}
               >
                 <BusIcon size={26} />
                 <TrainIcon size={26} />
@@ -217,7 +403,7 @@ export default function HomeView({
                   <PlusIcon size={26} />
                 </span>
               </button>
-              {!settings.transitSkipped && (
+              {!settings.transitSkipped && !openTransit && (
                 <button
                   onClick={() => onSettings({ ...settings, transitSkipped: true })}
                   className="mt-2 text-[13px] text-sub underline underline-offset-4"
@@ -235,34 +421,97 @@ export default function HomeView({
         </Station>
 
         {/* ③ 出門所需時間 */}
-        <Station n={3} state={state(3)} icon={<ListIcon />} last>
+        <Station n={3} state={state(3)} icon={<ListIcon />} title="出門所需時間" caption="選擇準備所需時間，按「開始」計時" last>
+          {/* 計時功能一覽 */}
+          <div className="mb-3 flex items-start justify-between border-y border-line py-2.5">
+            {feature(
+              <SpeakerIcon size={22} off={settings.muted} />,
+              settings.muted ? "語音 關" : "語音 開",
+              <button
+                onClick={() => speak("語音提示已開啟")}
+                disabled={settings.muted}
+                className="mt-1 flex items-center gap-0.5 border border-ink px-1.5 py-0.5 text-[11px] font-bold disabled:opacity-30"
+                aria-label="試聽"
+              >
+                <PlayIcon size={10} />
+                試聽
+              </button>,
+              () => onSettings({ ...settings, muted: !settings.muted }),
+              !settings.muted
+            )}
+            {feature(<SunIcon size={22} />, "螢幕常亮")}
+            {feature(<SkipIcon size={22} />, "自動跳步")}
+            {feature(<ChartIcon size={22} />, "學習耗時")}
+          </div>
+
           <div className="border-t border-ink">
             {presets.map((p) => {
               const total = p.steps.reduce((a, s) => a + s.minutes, 0);
               const startBy = target.leaveAt !== null ? target.leaveAt - total * 60_000 : null;
               const late = startBy !== null && startBy < now;
               return (
-                <div key={p.id} className="grid grid-cols-[3.4rem_1fr_auto_auto] items-center gap-2.5 border-b border-line py-3">
-                  <span className={`tnum text-[1.1rem] font-extrabold ${late ? "text-danger" : "text-ink"}`}>
-                    {startBy !== null ? fmtClock(startBy) : "--:--"}
-                  </span>
-                  <button onClick={() => setMenu(p)} className="min-w-0 truncate text-left text-[16px] font-extrabold text-ink">
-                    {p.name}
-                  </button>
-                  <span className="tnum text-[14px] text-sub">{total}′</span>
-                  <button
-                    onClick={() => onStart(p)}
-                    disabled={p.steps.length === 0}
-                    className="h-10 bg-ink px-3.5 text-[15px] font-bold text-white disabled:opacity-40"
-                  >
-                    開始
-                  </button>
-                </div>
+                <SwipeRow key={p.id} onDelete={() => setConfirmDel(p)}>
+                  <div className="grid grid-cols-[3.3rem_1fr_auto_auto_auto] items-center gap-2 py-3">
+                    <span className={`tnum text-[1.05rem] font-extrabold ${late ? "text-danger" : "text-ink"}`}>
+                      {startBy !== null ? fmtClock(startBy) : "--:--"}
+                    </span>
+                    <span className="min-w-0 truncate text-[16px] font-extrabold text-ink">{p.name}</span>
+                    <span className="tnum text-[14px] text-sub">{total}′</span>
+                    <button onClick={() => onEdit(p.id)} className="flex h-10 w-9 items-center justify-center text-ink" aria-label={`編輯${p.name}`}>
+                      <PencilIcon size={19} />
+                    </button>
+                    <button
+                      onClick={() => onStart(p)}
+                      disabled={p.steps.length === 0}
+                      className="h-10 bg-ink px-3 text-[15px] font-bold text-white disabled:opacity-40"
+                    >
+                      開始
+                    </button>
+                  </div>
+                </SwipeRow>
               );
             })}
-            <button onClick={() => onEdit(null)} className="flex w-full items-center gap-2 py-3 text-left text-[15px] text-sub" aria-label="新增出門模式">
-              <PlusIcon size={18} />
+            <button
+              onClick={() => setOpenAdd((o) => !o)}
+              className="flex w-full items-center gap-2 py-3 text-left text-ink"
+              aria-label="新增出門模式"
+              aria-expanded={openAdd}
+            >
+              <PlusIcon size={20} />
             </button>
+            {openAdd && (
+              <div className="border-[1.5px] border-ink p-3">
+                <div className="grid grid-cols-3 gap-1.5">
+                  {QUICK_TEMPLATES.map((t) => (
+                    <button key={t.key} onClick={() => add(fromTemplate(t))} className="border-[1.5px] border-ink py-2.5 text-center active:bg-brand-soft">
+                      <span className="tnum block text-[1.6rem] font-extrabold leading-tight text-ink">{templateTotal(t)}</span>
+                      <span className="text-[12px] text-sub">分鐘</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <div className="flex items-center border-[1.5px] border-ink">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={custom}
+                      onChange={(e) => setCustom(e.target.value)}
+                      aria-label="自訂分鐘"
+                      className="tnum h-11 w-14 bg-transparent text-center text-lg font-extrabold text-ink"
+                    />
+                    <button
+                      onClick={() => customMin >= 5 && customMin <= 180 && add(presetForTotal(customMin))}
+                      className="h-11 flex-1 bg-ink text-[14px] font-bold text-white"
+                    >
+                      自訂
+                    </button>
+                  </div>
+                  <button onClick={() => onEdit(null)} className="h-11 border-[1.5px] border-dashed border-ink text-[14px] font-bold text-ink">
+                    由零開始
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </Station>
       </div>
@@ -279,29 +528,20 @@ export default function HomeView({
         )}
       </nav>
 
-      <Modal open={!!menu} title={menu?.name ?? ""} onClose={() => setMenu(null)}>
-        <div className="grid gap-2">
-          <button
-            onClick={() => {
-              const id = menu!.id;
-              setMenu(null);
-              onEdit(id);
-            }}
-            className="h-14 bg-ink text-lg font-bold text-white"
-          >
-            編輯
-          </button>
-          <button
-            onClick={() => {
-              setSharing(menu);
-              setMenu(null);
-            }}
-            className="h-14 border-[1.5px] border-ink text-lg font-bold text-ink"
-          >
-            分享
-          </button>
-          <button onClick={() => setMenu(null)} className="h-12 text-sub">
+      <Modal open={!!confirmDel} title={`刪除「${confirmDel?.name ?? ""}」？`} onClose={() => setConfirmDel(null)}>
+        <p className="mb-5 text-[15px] text-sub">此模式及其耗時紀錄將一併刪除，無法復原。</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => setConfirmDel(null)} className="h-14 border-[1.5px] border-ink font-bold text-ink">
             取消
+          </button>
+          <button
+            onClick={() => {
+              onDelete(confirmDel!.id);
+              setConfirmDel(null);
+            }}
+            className="h-14 bg-danger font-bold text-white"
+          >
+            刪除
           </button>
         </div>
       </Modal>

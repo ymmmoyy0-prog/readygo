@@ -15,7 +15,7 @@ import {
 import { decodeShare } from "@/lib/share";
 import { createSession } from "@/lib/session";
 import { initSpeech, speak } from "@/lib/speech";
-import { QUICK_TEMPLATES, defaultPresets, fromTemplate } from "@/lib/defaults";
+import { QUICK_TEMPLATES, blankPreset, defaultPresets, fromTemplate } from "@/lib/defaults";
 import HomeView from "./HomeView";
 import EditorView from "./EditorView";
 import TimerView from "./TimerView";
@@ -174,11 +174,19 @@ export default function App() {
           onStart={start}
           onEdit={(id) => {
             const p = list.find((x) => x.id === id);
-            setView(p ? { name: "edit", draft: p, isNew: false } : { name: "onboard", firstRun: false });
+            setView(p ? { name: "edit", draft: p, isNew: false } : { name: "edit", draft: blankPreset(), isNew: true });
+          }}
+          onAdd={(p) => {
+            let name = p.name;
+            for (let i = 2; list.some((x) => x.name === name); i++) name = `${p.name} ${i}`;
+            setPresets([...list, { ...p, name }]);
+          }}
+          onDelete={(id) => {
+            setPresets(list.filter((x) => x.id !== id));
+            setHistory((h) => h.filter((r) => r.presetId !== id));
           }}
           onResume={() => setView(session?.finishedAt ? { name: "summary" } : { name: "timer" })}
           onPlan={() => setView({ name: "plan" })}
-          onRoutes={() => setView({ name: "routes" })}
           target={target}
           live={live}
         />

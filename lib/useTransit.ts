@@ -10,12 +10,13 @@ const REFRESH_MS = 30_000;
 export function useTransit(
   t: TransitSettings,
   onObservedRide?: (which: "primary" | "backup", min: number) => void
-): LiveTransit & { error: string | null; loading: boolean; updatedAt: number | null } {
+): LiveTransit & { error: string | null; loading: boolean; updatedAt: number | null; refresh: () => Promise<void> } {
   const [state, setState] = useState<LiveTransit>({ primary: null, backup: null });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const cb = useRef(onObservedRide);
+  const runRef = useRef<() => Promise<void>>(async () => {});
   cb.current = onObservedRide;
   const key = JSON.stringify([t.primary, t.backup, t.doorBufferMin].map((x) => (x && typeof x === "object" ? { ...x, rideMin: 0 } : x)));
 
@@ -27,6 +28,7 @@ export function useTransit(
     let stop = false;
     const run = async () => {
       if (document.visibilityState !== "visible") return;
+      if (stop) return;
       setLoading(true);
       // 首選與備案分開查詢：其中一條失敗時保留該路線上次的資料
       const [pr, br] = await Promise.allSettled([
@@ -44,6 +46,7 @@ export function useTransit(
       if (b?.observedRideMin && t.backup && b.observedRideMin !== t.backup.rideMin) cb.current?.("backup", b.observedRideMin);
       setLoading(false);
     };
+    runRef.current = run;
     run();
     const timer = setInterval(run, REFRESH_MS);
     const onVis = () => document.visibilityState === "visible" && run();
@@ -56,5 +59,5 @@ export function useTransit(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  return { ...state, error, loading, updatedAt };
+  return { ...state, error, loading, updatedAt, refresh: () => runRef.current() };
 }

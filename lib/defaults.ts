@@ -13,14 +13,14 @@ export interface Template {
 /** 新手快速模板：只需揀「出門前幾耐」，用字中性，唔假設用戶會化妝 */
 export const QUICK_TEMPLATES: Template[] = [
   {
-    key: "q20",
+    key: "q15",
     name: "快速出門",
     blurb: "梳洗更衣後即出發",
     steps: [
-      ["刷牙洗臉", 5, true],
-      ["整理儀容", 4, false],
-      ["更衣", 7, true],
-      ["收拾隨身物品", 4, true],
+      ["刷牙洗臉", 4, true],
+      ["整理儀容", 3, false],
+      ["更衣", 5, true],
+      ["收拾隨身物品", 3, true],
     ],
   },
   {
@@ -145,4 +145,22 @@ export function scaleSteps(steps: Step[], total: number): Step[] {
     i++;
   }
   return out;
+}
+
+/** 舊版「快速出門」（20 分鐘，未經修改）更新為 15 分鐘 */
+export function migrateQuick15(list: Preset[]): { list: Preset[]; changed: boolean } {
+  const oldNames = ["刷牙洗臉", "整理儀容", "更衣", "收拾隨身物品"];
+  const oldMins = [5, 4, 7, 4];
+  const newMins = [4, 3, 5, 3];
+  let changed = false;
+  const out = list.map((p) => {
+    const same =
+      (p.name === "快速出門" || p.name.startsWith("快手出門")) &&
+      p.steps.length === 4 &&
+      p.steps.every((s, i) => s.name === oldNames[i] && s.minutes === oldMins[i]);
+    if (!same) return p;
+    changed = true;
+    return { ...p, name: "快速出門", updatedAt: Date.now(), steps: p.steps.map((s, i) => ({ ...s, minutes: newMins[i] })) };
+  });
+  return { list: out, changed };
 }

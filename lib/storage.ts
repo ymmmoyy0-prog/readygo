@@ -1,5 +1,5 @@
 import type { Preset, Session, Settings, StepRecord } from "./types";
-import { defaultPresets } from "./defaults";
+import { defaultPresets, migrateQuick15 } from "./defaults";
 import { defaultTransit } from "./transit";
 
 const K = {
@@ -50,7 +50,10 @@ export function loadPresets(): Preset[] | null {
     return defaultPresets();
   }
   if (raw === null) return null;
-  return read<Preset[]>(K.presets, []);
+  const list = read<Preset[]>(K.presets, []);
+  const m = migrateQuick15(list);
+  if (m.changed) write(K.presets, m.list);
+  return m.list;
 }
 
 export const savePresets = (p: Preset[]) => write(K.presets, p);
@@ -72,3 +75,19 @@ export const saveSettings = (s: Settings) => write(K.settings, s);
 
 export const loadSession = () => read<Session | null>(K.session, null);
 export const saveSession = (s: Session | null) => write(K.session, s);
+
+/** 一次性提示（例如首次計時的紅點）是否已看過 */
+export function tipSeen(key: string): boolean {
+  try {
+    return localStorage.getItem(`readygo.tip.${key}`) === "1";
+  } catch {
+    return true;
+  }
+}
+export function markTip(key: string) {
+  try {
+    localStorage.setItem(`readygo.tip.${key}`, "1");
+  } catch {
+    /* ignore */
+  }
+}

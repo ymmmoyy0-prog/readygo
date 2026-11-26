@@ -19,6 +19,8 @@ import { speak, stopSpeech } from "@/lib/speech";
 import { useWakeLock } from "@/lib/wakeLock";
 import Modal from "./Modal";
 import Flap from "./Flap";
+import { SpeakerIcon, SunIcon } from "./Icons";
+import { markTip, tipSeen } from "@/lib/storage";
 import Ruler from "./Ruler";
 import TransitBadge from "./TransitBadge";
 import type { LiveTransit } from "@/lib/target";
@@ -55,6 +57,8 @@ export default function TimerView({
   const [exitOpen, setExitOpen] = useState(false);
   const [panicMin, setPanicMin] = useState("");
   const announced = useRef<Set<string>>(new Set());
+  const [tips, setTips] = useState({ panic: true, extend: true });
+  useEffect(() => setTips({ panic: tipSeen("panic"), extend: tipSeen("extend") }), []);
   const wake = useWakeLock(!session.finishedAt);
 
   useEffect(() => {
@@ -198,15 +202,22 @@ export default function TimerView({
           {s.presetName}
           {s.compressed && <span className="ml-1 text-danger">・已壓縮</span>}
         </div>
+        <span className={`flex items-center gap-0.5 text-[12px] font-semibold ${wake === "on" ? "text-ink" : "text-faint"}`}>
+          <SunIcon size={17} />
+          常亮
+        </span>
         <button
           onClick={() => onSettings({ ...settings, muted: !settings.muted })}
-          className={`h-10 w-10 text-lg ${settings.muted ? "text-faint" : "text-ink"}`}
-          aria-label={settings.muted ? "開啟語音" : "靜音"}
-          title={wake === "on" ? "螢幕常亮中" : undefined}
+          className={`flex h-10 items-center gap-0.5 px-1 text-[12px] font-semibold ${settings.muted ? "text-faint" : "text-ink"}`}
+          aria-label={settings.muted ? "開啟語音" : "關閉語音"}
         >
-          {settings.muted ? "🔇" : "🔊"}
+          <SpeakerIcon size={19} off={settings.muted} />
+          語音{settings.muted ? "關" : "開"}
         </button>
       </div>
+      <p className="shrink-0 border-b border-line bg-brand-soft px-5 py-1.5 text-[13px] text-sub">
+        時間到自動進入下一步；提早完成按下方黑色按鈕
+      </p>
 
       {/* 資訊區 */}
       <div className="flex min-h-0 flex-1 flex-col justify-center gap-[1.6dvh] overflow-hidden px-5">
@@ -228,7 +239,14 @@ export default function TimerView({
         {autoStep && (
           <div className="flex items-center gap-2 border border-ink bg-warn-soft py-1 pl-3 pr-1">
             <span className="min-w-0 flex-1 truncate text-[15px] text-ink">「{autoStep.name}」已自動完成</span>
-            <button onClick={handleExtend} className="h-11 shrink-0 bg-ink px-3 text-[15px] font-bold text-white">
+            <button
+              onClick={() => {
+                markTip("extend");
+                handleExtend();
+              }}
+              className="relative h-11 shrink-0 bg-ink px-3 text-[15px] font-bold text-white"
+            >
+              {!tips.extend && <TipDot />}
               未完成，延長 2 分鐘
             </button>
           </div>
@@ -281,7 +299,15 @@ export default function TimerView({
         >
           {paused ? "繼續" : "暫停"}
         </button>
-        <button onClick={openPanic} className="bg-danger py-3 text-base font-bold text-white">
+        <button
+          onClick={() => {
+            markTip("panic");
+            setTips((t) => ({ ...t, panic: true }));
+            openPanic();
+          }}
+          className="relative bg-danger py-3 text-base font-bold text-white"
+        >
+          {!tips.panic && <TipDot light />}
           時間不足
         </button>
       </div>
@@ -374,5 +400,19 @@ export default function TimerView({
         </div>
       </Modal>
     </main>
+  );
+}
+
+/** 首次使用提示：閃動紅點，按過一次後消失 */
+function TipDot({ light = false }: { light?: boolean }) {
+  const c = light ? "#ffffff" : "#d52b1e";
+  return (
+    <svg className="pointer-events-none absolute -right-1.5 -top-1.5" width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+      <circle cx="9" cy="9" r="6" fill="none" stroke={c} strokeWidth="2">
+        <animate attributeName="r" values="4;8.5" dur="1.2s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.9;0" dur="1.2s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="9" cy="9" r="4.5" fill={light ? "#111" : "#d52b1e"} stroke="#fff" strokeWidth="1.5" />
+    </svg>
   );
 }

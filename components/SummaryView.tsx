@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { Preset, Session, StepRecord } from "@/lib/types";
 import { applySuggestions, getSuggestions } from "@/lib/stats";
 import { fmtClock, fmtDuration } from "@/lib/time";
+import { ChartIcon } from "./Icons";
 
 export default function SummaryView({
   session,
@@ -137,6 +138,12 @@ function Row({
         }`}
       >
         {diff === null ? "" : Math.abs(diff) < 1 ? "準時" : `${diff > 0 ? "+" : "−"}${fmtDuration(Math.abs(diff))}`}
+        {over && actual !== null && (
+          <span className="mt-0.5 flex items-center justify-end gap-0.5 text-[12px] font-bold text-warn">
+            <ChartIcon size={13} />
+            下次 {Math.ceil(actual / 60)}′
+          </span>
+        )}
       </span>
     </>
   );

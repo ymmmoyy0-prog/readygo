@@ -11,11 +11,12 @@ import {
   type RouteOption,
   type StopOption,
 } from "@/lib/transit";
-import { MTR_LINES, mtrLine } from "@/lib/mtr";
+import { mtrLine } from "@/lib/mtr";
 import { planMtr, stationName } from "@/lib/mtrRoute";
 import type { LiveTransit } from "@/lib/target";
 import { fmtClock } from "@/lib/time";
 import { CoChip, routeTitle } from "./TransitBadge";
+import MtrPicker from "./MtrPicker";
 
 type Slot = "primary" | "backup";
 
@@ -24,11 +25,14 @@ export default function RouteView({
   live,
   onSettings,
   onBack,
+  embedded = false,
 }: {
   settings: Settings;
   live: LiveTransit & { error: string | null; loading: boolean };
   onSettings: (s: Settings) => void;
   onBack: () => void;
+  /** 在主頁第 ② 步內展開 */
+  embedded?: boolean;
 }) {
   const [slot, setSlot] = useState<Slot>("primary");
   const saved = settings.transit[slot];
@@ -41,14 +45,16 @@ export default function RouteView({
   const now = Date.now();
 
   return (
-    <main className="mx-auto min-h-dvh max-w-lg bg-paper pb-10">
-      <div className="flex items-center justify-between border-b-[3px] border-ink px-4 py-3">
-        <button onClick={onBack} className="h-10 font-semibold text-ink">
-          ← 返回
-        </button>
-        <b className="text-ink">交通路線</b>
-        <span className="w-12" />
-      </div>
+    <div className={embedded ? "border-y-[1.5px] border-ink bg-paper pb-5" : "mx-auto min-h-dvh max-w-lg bg-paper pb-10"}>
+      {!embedded && (
+        <div className="flex items-center justify-between border-b-[3px] border-ink px-4 py-3">
+          <button onClick={onBack} className="h-10 font-semibold text-ink">
+            ← 返回
+          </button>
+          <b className="text-ink">交通路線</b>
+          <span className="w-12" />
+        </div>
+      )}
 
       <div className="mx-5 my-4 grid grid-cols-2 border-[1.5px] border-ink">
         {(["primary", "backup"] as const).map((k, i) => (
@@ -162,7 +168,14 @@ export default function RouteView({
       <p className="px-5 pt-3 text-[13px] leading-relaxed text-sub">
         最晚出門 ＝ 班次到站 － 出門準備緩衝 － 步行到站。到達時間 ＝ 下車時間 ＋ 步行到目的地。巴士下車時間以實時資料逐站追蹤同一班車推算；港鐵按各段行車時間估算；未能追蹤時以乘車時間估算並標示「估」。
       </p>
-    </main>
+      {embedded && (
+        <div className="px-5 pt-4">
+          <button onClick={onBack} className="w-full border-[1.5px] border-ink py-3 font-bold text-ink">
+            收起
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -298,21 +311,6 @@ function RouteEditor({
 
   const field = "block border-b border-line px-5 py-3";
   const select = "mt-1 w-full appearance-none bg-transparent text-[17px] font-extrabold text-ink";
-  const stationOptions = (
-    <>
-      <option value="">請選擇</option>
-      {MTR_LINES.map((l) => (
-        <optgroup key={l.code} label={l.name}>
-          {l.stations.map(([c, n]) => (
-            <option key={l.code + c} value={c}>
-              {n}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </>
-  );
-
   return (
     <div className="border-t border-ink">
       <div className={field}>
@@ -340,18 +338,8 @@ function RouteEditor({
 
       {co === "MTR" && (
         <>
-          <label className={field}>
-            <span className="block text-[13px] text-sub">上車站</span>
-            <select value={fromId} onChange={(e) => { setFromId(e.target.value); setRide(null); }} className={select}>
-              {stationOptions}
-            </select>
-          </label>
-          <label className={field}>
-            <span className="block text-[13px] text-sub">下車站</span>
-            <select value={toId} onChange={(e) => { setToId(e.target.value); setRide(null); }} className={select}>
-              {stationOptions}
-            </select>
-          </label>
+          <MtrPicker label="上車站" value={fromId} onChange={(c) => { setFromId(c); setRide(null); }} />
+          <MtrPicker label="下車站" value={toId} onChange={(c) => { setToId(c); setRide(null); }} />
           {journey && (
             <div className="border-b border-line px-5 py-3">
               {journey.legs.map((l, i) => {

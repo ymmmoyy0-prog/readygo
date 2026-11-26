@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Modal from "./Modal";
+import { LinkIcon, PhoneIcon } from "./Icons";
 import type { Preset } from "@/lib/types";
 import { buildShareUrl } from "@/lib/share";
 
@@ -41,11 +42,18 @@ export default function ShareModal({
 
   return (
     <Modal open={!!preset} title={many ? "分享／備份全部模式" : "分享此出門流程"} onClose={onClose}>
-      <p className="mb-3 leading-relaxed text-sub">
-        對方開啟連結後，可將「<span className="font-semibold text-ink">{label}</span>
-        」匯入其裝置，之後各自修改，互不影響。
-        {many && " 亦可作為備份：更換手機時，在新手機開啟此連結即可還原。"}
-      </p>
+      <div className="mb-3 flex gap-5 text-ink">
+        <span className="flex items-center gap-1.5 text-[14px] font-semibold">
+          <LinkIcon size={20} />
+          傳給朋友匯入
+        </span>
+        {many && (
+          <span className="flex items-center gap-1.5 text-[14px] font-semibold">
+            <PhoneIcon size={20} />
+            換機還原
+          </span>
+        )}
+      </div>
       <textarea
         id="share-url"
         readOnly
