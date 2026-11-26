@@ -37,7 +37,7 @@ export const defaultSettings: Settings = {
   manualTravelMin: 30,
   transit: defaultTransit,
   transitSkipped: false,
-  plan: null,
+  plans: [],
 };
 
 /** 回傳 null 代表首次使用（顯示新手引導） */
@@ -62,13 +62,25 @@ export const loadHistory = () => read<StepRecord[]>(K.history, []);
 export const saveHistory = (h: StepRecord[]) => write(K.history, h.slice(-HISTORY_CAP));
 
 export const loadSettings = (): Settings => {
-  const raw = read<Partial<Settings> & { plan?: { leaveTime?: string } | null }>(K.settings, {});
+  const raw = read<Partial<Settings>>(K.settings, {});
   const s = { ...defaultSettings, ...raw, transit: { ...defaultTransit, ...(raw.transit ?? {}) } } as Settings;
-  // 舊版計劃只有 leaveTime
-  if (s.plan && !(s.plan as { mode?: string }).mode) {
-    const old = s.plan as unknown as { leaveTime?: string };
-    s.plan = { ...s.plan, mode: "leave", time: old.leaveTime ?? "08:30" };
+  // 舊版只有單一計劃（settings.plan）：轉為行程清單
+  const legacy = (raw as { plan?: Record<string, unknown> | null }).plan;
+  if (legacy && !raw.plans) {
+    s.plans = [
+      {
+        id: "legacy",
+        name: "",
+        presetId: String(legacy.presetId ?? ""),
+        minutes: null,
+        mode: legacy.mode === "arrive" ? "arrive" : "leave",
+        time: String(legacy.time ?? legacy.leaveTime ?? "08:30"),
+        wakeBufferMin: Number(legacy.wakeBufferMin ?? 10),
+        date: String(legacy.date ?? ""),
+      },
+    ];
   }
+  delete (s as { plan?: unknown }).plan;
   return s;
 };
 export const saveSettings = (s: Settings) => write(K.settings, s);

@@ -15,7 +15,7 @@ import {
 import { decodeShare } from "@/lib/share";
 import { createSession } from "@/lib/session";
 import { initSpeech, speak } from "@/lib/speech";
-import { QUICK_TEMPLATES, blankPreset, defaultPresets, fromTemplate } from "@/lib/defaults";
+import { QUICK_TEMPLATES, blankPreset, defaultPresets, fromTemplate, scaleSteps } from "@/lib/defaults";
 import HomeView from "./HomeView";
 import EditorView from "./EditorView";
 import TimerView from "./TimerView";
@@ -136,12 +136,23 @@ export default function App() {
     if (view.name === "onboard") setView({ name: "home" });
   };
 
-  const start = (preset: Preset, fromPlan?: boolean) => {
+  const addPreset = (p: Preset): Preset => {
+    let name = p.name;
+    for (let i = 2; list.some((x) => x.name === name); i++) name = `${p.name} ${i}`;
+    const added = { ...p, name };
+    setPresets([...list, added]);
+    return added;
+  };
+
+  const start = (base: Preset, planId?: string) => {
     let st = settings;
-    const plan = settings.plan;
-    if (fromPlan && plan) {
+    let preset = base;
+    const plan = planId ? settings.plans.find((x) => x.id === planId) : undefined;
+    if (plan) {
       st = plan.mode === "arrive" ? { ...settings, timeMode: "arrive", arriveTime: plan.time } : { ...settings, timeMode: "leave", leaveTime: plan.time };
       setSettings(st);
+      // 「只限今次」分鐘：按比例縮放步驟，只影響這次計時
+      if (plan.minutes !== null) preset = { ...base, steps: scaleSteps(base.steps, plan.minutes) };
     }
     const t = computeTarget(st, live, Date.now());
     const s = createSession(preset, t.leaveAt);
@@ -176,11 +187,7 @@ export default function App() {
             const p = list.find((x) => x.id === id);
             setView(p ? { name: "edit", draft: p, isNew: false } : { name: "edit", draft: blankPreset(), isNew: true });
           }}
-          onAdd={(p) => {
-            let name = p.name;
-            for (let i = 2; list.some((x) => x.name === name); i++) name = `${p.name} ${i}`;
-            setPresets([...list, { ...p, name }]);
-          }}
+          onAdd={addPreset}
           onDelete={(id) => {
             setPresets(list.filter((x) => x.id !== id));
             setHistory((h) => h.filter((r) => r.presetId !== id));
@@ -195,14 +202,9 @@ export default function App() {
         <PlanView
           presets={list}
           settings={settings}
-          onSave={(plan) => {
-            setSettings({ ...settings, plan });
-            setView({ name: "home" });
-          }}
-          onClear={() => {
-            setSettings({ ...settings, plan: null });
-            setView({ name: "home" });
-          }}
+          onSettings={setSettings}
+          onAddPreset={addPreset}
+          onBlankPreset={() => setView({ name: "edit", draft: blankPreset(), isNew: true })}
           onBack={() => setView({ name: "home" })}
         />
       )}

@@ -28,14 +28,19 @@ import type { TransitSettings } from "./transit";
 export type TimeMode = "leave" | "arrive";
 
 export interface Plan {
+  id: string;
+  /** 行程名稱，例如「週末出遊」 */
+  name: string;
   presetId: string;
+  /** 只限今次的準備分鐘；null 代表沿用模式原本時長 */
+  minutes: number | null;
   /** 以出門時間或到達時間計算 */
   mode: TimeMode;
   /** "HH:MM" */
   time: string;
   /** 起床後至開始準備的緩衝分鐘 */
   wakeBufferMin: number;
-  /** 計劃日期 "YYYY-MM-DD"（本地時間） */
+  /** 日期 "YYYY-MM-DD"（本地時間） */
   date: string;
 }
 
@@ -51,7 +56,7 @@ export interface Settings {
   transit: TransitSettings;
   /** 用戶選擇不設定交通（第 2 步略過） */
   transitSkipped: boolean;
-  plan: Plan | null;
+  plans: Plan[];
 }
 
 export interface RunStep {

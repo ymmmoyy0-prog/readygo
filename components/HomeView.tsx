@@ -4,19 +4,18 @@ import type { Preset, Session, Settings } from "@/lib/types";
 import { fmtClock, todayKey } from "@/lib/time";
 import type { LiveTransit, Target } from "@/lib/target";
 import { listDepartures } from "@/lib/target";
-import { QUICK_TEMPLATES, fromTemplate, presetForTotal, templateTotal } from "@/lib/defaults";
 import { speak } from "@/lib/speech";
 import ShareModal from "./ShareModal";
 import Modal from "./Modal";
 import TimeField from "./TimeField";
 import TransitBadge from "./TransitBadge";
 import RouteView from "./RouteView";
+import AddModePanel from "./AddModePanel";
 import { Logo } from "./StationClock";
 import {
   AddSquareIcon,
   BusIcon,
   CarIcon,
-  ChartIcon,
   ClockIcon,
   ListIcon,
   PencilIcon,
@@ -24,9 +23,7 @@ import {
   PlusIcon,
   RefreshIcon,
   ShareUpIcon,
-  SkipIcon,
   SpeakerIcon,
-  SunIcon,
   TrainIcon,
   TrashIcon,
 } from "./Icons";
@@ -169,7 +166,7 @@ export default function HomeView({
   target: Target;
   live: LiveProps;
   onSettings: (s: Settings) => void;
-  onStart: (p: Preset, fromPlan?: boolean) => void;
+  onStart: (p: Preset, planId?: string) => void;
   onEdit: (id: string | null) => void;
   onAdd: (p: Preset) => void;
   onDelete: (id: string) => void;
@@ -180,7 +177,6 @@ export default function HomeView({
   const [confirmDel, setConfirmDel] = useState<Preset | null>(null);
   const [openTransit, setOpenTransit] = useState(false);
   const [openAdd, setOpenAdd] = useState(false);
-  const [custom, setCustom] = useState("45");
   const [a2hs, setA2hs] = useState(false);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -203,8 +199,11 @@ export default function HomeView({
   const arrive = settings.timeMode === "arrive";
   const time = arrive ? settings.arriveTime : settings.leaveTime;
   const setTime = (v: string) => onSettings(arrive ? { ...settings, arriveTime: v } : { ...settings, leaveTime: v });
-  const plan = settings.plan && settings.plan.date === todayKey(now) ? settings.plan : null;
-  const planPreset = plan ? presets.find((p) => p.id === plan.presetId) : null;
+  const todays = settings.plans
+    .filter((p) => p.date === todayKey(now))
+    .map((plan) => ({ plan, preset: presets.find((x) => x.id === plan.presetId) }))
+    .filter((x): x is { plan: typeof x.plan; preset: Preset } => !!x.preset);
+  const upcoming = settings.plans.filter((p) => p.date >= todayKey(now)).length;
   const route = settings.transit.primary;
 
   const s1 = !!time;
@@ -219,35 +218,12 @@ export default function HomeView({
   const prepSec = (presets[0]?.steps.reduce((a, s) => a + s.minutes, 0) ?? 0) * 60;
   const deps = listDepartures(settings, live, prepSec, now);
   const shownDep = target.dep ?? deps.find((d) => d.catchable)?.dep ?? null;
-  const customMin = Math.round(Number(custom));
 
   const doRefresh = async () => {
     setRefreshing(true);
     await live.refresh();
     setRefreshing(false);
   };
-
-  const add = (p: Preset) => {
-    onAdd(p);
-    setOpenAdd(false);
-  };
-
-  const feature = (icon: ReactNode, label: string, extra?: ReactNode, onClick?: () => void, active = true) => (
-    <span className={`flex flex-col items-center gap-0.5 ${active ? "text-ink" : "text-faint"}`}>
-      {onClick ? (
-        <button onClick={onClick} className="flex flex-col items-center gap-0.5" aria-pressed={active}>
-          {icon}
-          <span className="text-[11px] font-semibold">{label}</span>
-        </button>
-      ) : (
-        <>
-          {icon}
-          <span className="text-[11px] font-semibold">{label}</span>
-        </>
-      )}
-      {extra}
-    </span>
-  );
 
   return (
     <main
@@ -319,16 +295,16 @@ export default function HomeView({
         </button>
       )}
 
-      {plan && planPreset && (
-        <div className="flex items-center justify-between gap-3 border-b border-ink bg-warn-soft px-5 py-3">
-          <span className="min-w-0 text-[15px] text-ink">
-            今日計劃：<b>{planPreset.name}</b>・{plan.mode === "arrive" ? `${plan.time} 到達` : `${plan.time} 出門`}
+      {todays.map(({ plan, preset }) => (
+        <div key={plan.id} className="flex items-center justify-between gap-3 border-b border-ink bg-warn-soft px-5 py-3">
+          <span className="min-w-0 truncate text-[15px] text-ink">
+            <b>{plan.name || preset.name}</b>・{plan.mode === "arrive" ? `${plan.time} 到達` : `${plan.time} 出門`}
           </span>
-          <button onClick={() => onStart(planPreset, true)} className="h-10 shrink-0 bg-ink px-3 text-[15px] font-bold text-white">
+          <button onClick={() => onStart(preset, plan.id)} className="h-10 shrink-0 bg-ink px-3 text-[15px] font-bold text-white">
             開始
           </button>
         </div>
-      )}
+      ))}
 
       <div className="pt-2">
         {/* ① 時間 */}
@@ -422,26 +398,30 @@ export default function HomeView({
 
         {/* ③ 出門所需時間 */}
         <Station n={3} state={state(3)} icon={<ListIcon />} title="出門所需時間" caption="選擇準備所需時間，按「開始」計時" last>
-          {/* 計時功能一覽 */}
-          <div className="mb-3 flex items-start justify-between border-y border-line py-2.5">
-            {feature(
-              <SpeakerIcon size={22} off={settings.muted} />,
-              settings.muted ? "語音 關" : "語音 開",
-              <button
-                onClick={() => speak("語音提示已開啟")}
-                disabled={settings.muted}
-                className="mt-1 flex items-center gap-0.5 border border-ink px-1.5 py-0.5 text-[11px] font-bold disabled:opacity-30"
-                aria-label="試聽"
-              >
-                <PlayIcon size={10} />
-                試聽
-              </button>,
-              () => onSettings({ ...settings, muted: !settings.muted }),
-              !settings.muted
-            )}
-            {feature(<SunIcon size={22} />, "螢幕常亮")}
-            {feature(<SkipIcon size={22} />, "自動跳步")}
-            {feature(<ChartIcon size={22} />, "學習耗時")}
+          {/* 語音提示開關 */}
+          <div className="mb-3 flex items-center gap-3 border-y border-line py-2.5">
+            <SpeakerIcon size={22} off={settings.muted} />
+            <span className="text-[15px] font-bold text-ink">語音提示</span>
+            <button
+              onClick={() => speak("語音提示已開啟")}
+              disabled={settings.muted}
+              className="flex items-center gap-1 border border-ink px-2 py-1 text-[13px] font-bold text-ink disabled:opacity-30"
+            >
+              <PlayIcon size={11} />
+              試聽
+            </button>
+            <button
+              role="switch"
+              aria-checked={!settings.muted}
+              aria-label="語音提示"
+              onClick={() => onSettings({ ...settings, muted: !settings.muted })}
+              className="ml-auto"
+            >
+              <svg width="52" height="30" viewBox="0 0 52 30" aria-hidden>
+                <rect x="1" y="1" width="50" height="28" rx="14" fill={settings.muted ? "#d9d9d9" : "#1f7a45"} />
+                <circle cx={settings.muted ? 15 : 37} cy="15" r="11" fill="#fff" />
+              </svg>
+            </button>
           </div>
 
           <div className="border-t border-ink">
@@ -478,39 +458,16 @@ export default function HomeView({
               aria-expanded={openAdd}
             >
               <PlusIcon size={20} />
+              <span className="text-[15px] font-bold">建立你的出門模式</span>
             </button>
             {openAdd && (
-              <div className="border-[1.5px] border-ink p-3">
-                <div className="grid grid-cols-3 gap-1.5">
-                  {QUICK_TEMPLATES.map((t) => (
-                    <button key={t.key} onClick={() => add(fromTemplate(t))} className="border-[1.5px] border-ink py-2.5 text-center active:bg-brand-soft">
-                      <span className="tnum block text-[1.6rem] font-extrabold leading-tight text-ink">{templateTotal(t)}</span>
-                      <span className="text-[12px] text-sub">分鐘</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                  <div className="flex items-center border-[1.5px] border-ink">
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={custom}
-                      onChange={(e) => setCustom(e.target.value)}
-                      aria-label="自訂分鐘"
-                      className="tnum h-11 w-14 bg-transparent text-center text-lg font-extrabold text-ink"
-                    />
-                    <button
-                      onClick={() => customMin >= 5 && customMin <= 180 && add(presetForTotal(customMin))}
-                      className="h-11 flex-1 bg-ink text-[14px] font-bold text-white"
-                    >
-                      自訂
-                    </button>
-                  </div>
-                  <button onClick={() => onEdit(null)} className="h-11 border-[1.5px] border-dashed border-ink text-[14px] font-bold text-ink">
-                    由零開始
-                  </button>
-                </div>
-              </div>
+              <AddModePanel
+                onAdd={(p) => {
+                  onAdd(p);
+                  setOpenAdd(false);
+                }}
+                onBlank={() => onEdit(null)}
+              />
             )}
           </div>
         </Station>
@@ -518,7 +475,10 @@ export default function HomeView({
 
       <nav className="mt-auto border-t border-ink">
         <button onClick={onPlan} className="flex w-full items-center justify-between border-b border-line px-5 py-4 font-bold text-ink">
-          <span>明天的計劃</span>
+          <span>
+            行程預約
+            {upcoming > 0 && <span className="tnum ml-2 bg-ink px-1.5 py-0.5 text-[12px] text-white">{upcoming}</span>}
+          </span>
           <span>→</span>
         </button>
         {presets.length > 1 && (
